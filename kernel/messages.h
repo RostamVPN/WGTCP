@@ -45,7 +45,15 @@ enum limits {
 	REKEY_AFTER_TIME = 120,
 	REJECT_AFTER_TIME = 180,
 	INITIATIONS_PER_SECOND = 50,
-	MAX_PEERS_PER_DEVICE = 1U << 20,
+	/* Raised from upstream's 1U << 20 (1,048,576) to support a single
+	 * interface holding a full 10M-client population. This is only a
+	 * sanity bound on wg_peer_create(); nothing is sized by it. The real
+	 * costs of a large peer population are per-peer memory
+	 * (sizeof(struct wg_peer) ~2.9KB, so ~27GiB at 10M) and the peer
+	 * lookup hashtables in peerlookup.h, which must be scaled alongside
+	 * this value or handshake lookups degrade into long chain walks.
+	 */
+	MAX_PEERS_PER_DEVICE = 10000000,
 	KEEPALIVE_TIMEOUT = 10,
 	MAX_TIMER_HANDSHAKES = 90 / REKEY_TIMEOUT,
 	MAX_QUEUED_INCOMING_HANDSHAKES = 4096, /* TODO: replace this with DQL */

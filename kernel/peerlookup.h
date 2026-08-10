@@ -14,9 +14,31 @@
 
 struct wg_peer;
 
+/* Hashtable sizing.
+ *
+ * Upstream uses 11 and 13 bits (2048 / 8192 buckets), sized for interfaces
+ * holding tens to thousands of peers. Both tables are chained hlists, so a
+ * lookup walks its bucket linearly: at a 10M-peer population, 2048 buckets
+ * means ~4,900 entries per chain on the handshake hot path, which is a
+ * cache-miss walk per inbound handshake.
+ *
+ * These are scaled for a 10M-peer interface (see MAX_PEERS_PER_DEVICE):
+ *
+ *   pubkey  2^22 =  4,194,304 buckets ->  32MiB, ~2.4 peers/chain at 10M
+ *   index   2^23 =  8,388,608 buckets ->  64MiB, ~2.4 indices/chain at 10M
+ *           (~2 live indices per peer: handshake + keypair)
+ *
+ * Cost is a flat 96MiB per interface, allocated once via kvmalloc, versus
+ * ~27GiB of struct wg_peer at that population -- ~0.35% overhead to keep
+ * lookups effectively O(1). Interfaces with few peers pay the full 96MiB,
+ * so do not raise these on memory-constrained multi-interface hosts.
+ */
+#define WG_PUBKEY_HASH_BITS 22
+#define WG_INDEX_HASH_BITS 23
+
 struct pubkey_hashtable {
 	/* TODO: move to rhashtable */
-	DECLARE_HASHTABLE(hashtable, 11);
+	DECLARE_HASHTABLE(hashtable, WG_PUBKEY_HASH_BITS);
 	siphash_key_t key;
 	struct mutex lock;
 };
@@ -32,7 +54,7 @@ wg_pubkey_hashtable_lookup(struct pubkey_hashtable *table,
 
 struct index_hashtable {
 	/* TODO: move to rhashtable */
-	DECLARE_HASHTABLE(hashtable, 13);
+	DECLARE_HASHTABLE(hashtable, WG_INDEX_HASH_BITS);
 	spinlock_t lock;
 };
 
