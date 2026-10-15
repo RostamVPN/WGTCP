@@ -177,7 +177,7 @@ class TcpRoamingContract(unittest.TestCase):
         copy = section(
             self.socket,
             "static int copy_sock_addresses(struct socket *tcp_socket,",
-            "static struct wg_peer *wg_find_peer_by_endpoints(",
+            "int wg_tcp_listener_worker(",
         )
 
         self.assertIn("kernel_getsockname(tcp_socket", copy)

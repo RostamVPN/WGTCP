@@ -52,7 +52,6 @@ void wg_extract_endpoint_from_sock(struct sock *sk, struct endpoint *endpoint);
 bool wg_check_potential_header_validity(struct wg_tcp_encap_header *hdr,
 					size_t remaining_len);
 
-int wg_tcp_queuepkt(struct wg_peer *peer, const void *data, size_t len);
 void wg_tcp_write_space(struct sock *sk);
 void wg_tcp_data_ready(struct sock *sk);
 void wg_tcp_inbound_remove_worker(struct work_struct *work);

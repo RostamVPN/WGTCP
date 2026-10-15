@@ -44,6 +44,18 @@ class TcpListenerContract(unittest.TestCase):
         self.assertIn("if (wg->tcp_listen_socket4)", listener_init)
         self.assertIn("if (wg->tcp_listen_socket6)", listener_init)
 
+    def test_accept_path_does_no_per_peer_work(self) -> None:
+        worker = section(
+            self.socket,
+            "int wg_tcp_listener_worker(",
+            "int wg_tcp_listener4_thread(",
+        )
+
+        self.assertNotIn("&wg->peer_list", worker)
+        self.assertNotIn("wg_find_peer_by_endpoints", self.socket)
+        self.assertNotIn("wg_tcp_queuepkt", self.socket)
+        self.assertNotIn("wg_tcp_queuepkt", self.header)
+
     def test_listener_shutdown_precedes_thread_stop(self) -> None:
         release = section(
             self.socket,

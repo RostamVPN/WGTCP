@@ -851,12 +851,6 @@ static bool wg_sockaddr_length_valid(const struct sockaddr *addr, int length)
 	return false;
 }
 
-static bool wg_endpoints_match(const struct endpoint *a,
-			       const struct endpoint *b)
-{
-	return a && b && wg_sockaddrs_match((const struct sockaddr *)&a->addr, (const struct sockaddr *)&b->addr);
-}
-
 static bool wg_tcp_accept_source_matches(
 	const struct wg_tcp_accept_source *source, const struct sockaddr *addr)
 {
@@ -1348,39 +1342,6 @@ static int copy_sock_addresses(struct socket *tcp_socket,
 	return 0;
 }
 
-static struct wg_peer *wg_find_peer_by_endpoints(struct wg_device *wg, const struct endpoint *endpoint)
-{
-    struct wg_peer *peer = NULL;
-    struct wg_peer *matched_peer = NULL;
-
-    if (!wg || !endpoint) {
-        printk(KERN_ERR "wg_find_peer_by_endpoints: Invalid arguments, wg or endpoint is NULL\n");
-        return NULL;
-    }
-
-    wg_dbg("Entering function wg_find_peer_by_endpoints\n");
-
-    rcu_read_lock();
-    list_for_each_entry_rcu(peer, &wg->peer_list, peer_list) {
-        if (endpoint_eq(&peer->endpoint, endpoint) ||
-            endpoint_eq(&peer->peer_endpoint, endpoint) ||
-            endpoint_eq(&peer->tcp_reply_endpoint, endpoint)) {
-            matched_peer = peer;
-            wg_dbg("wg_find_peer_by_endpoints: Found matching peer %px\n", matched_peer);
-            break;
-        }
-    }
-    rcu_read_unlock();
-
-    if (!matched_peer) {
-        wg_dbg("wg_find_peer_by_endpoints: No matching peer found\n");
-    }
-
-    wg_dbg("Exiting function wg_find_peer_by_endpoints peer=%px\n", matched_peer);
-    return matched_peer;
-}
-
-
 int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 {
 	bool found = false;
@@ -1417,17 +1378,10 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 		 */
 		tcp_sock_set_nodelay(new_peer_connection->sk);
 
-	        struct wg_peer *matched_peer = NULL;
 		struct wg_peer *new_temp_peer = NULL;
 	        struct endpoint new_endpoint;
 		struct wg_tcp_socket_list_entry *socket_iter = NULL;
 		struct socket *old_pending_socket = NULL;
-
-		/* BUG FIX: reset found at the start of each iteration —
-		 * was never reset, so after first match all subsequent
-		 * connections incorrectly entered the 'found' branches
-		 */
-		found = false;
 
 		memset(&new_endpoint, 0, sizeof(new_endpoint));
 		err = new_peer_connection->ops->getname(
@@ -1449,40 +1403,6 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 			sock_release(new_peer_connection);
 			new_peer_connection = NULL;
 			continue;
-		}
-
-		if (!list_empty(&wg->peer_list)) {
-			/*
-			 * Match the inbound connection to a configured peer
-			 * endpoint.
-			 */
-			rcu_read_lock();
-			list_for_each_entry_rcu(matched_peer, &wg->peer_list, peer_list) {
-				if (wg_endpoints_match(&matched_peer->endpoint, &new_endpoint)) {
-					/* read data if there is any available */
-					found = true;
-					wg_dbg("wg_tcp_listener_worker matched existing endpoint\n");
-					break;
-			}
-			 }
-			/* BUG FIX: after list_for_each_entry_rcu exhaustion (no break),
-			 * matched_peer points to the list head (bogus pointer), not NULL.
-			 * Reset to NULL when no match was found.
-			 */
-			if (!found)
-				matched_peer = NULL;
-			rcu_read_unlock();
-		}
-		/* FIX: Both matched and unmatched peers need temp peer creation.
-		 * Original code dropped unmatched connections as "martians" which
-		 * prevented first TCP handshakes (endpoint unknown before handshake).
-		 * Now: always create a temp peer for inbound connections so the
-		 * handshake can be processed and the peer promoted.
-		 */
-		if (!matched_peer) {
-			wg_dbg("wg_tcp_listener_worker no endpoint match — new inbound connection\n");
-		} else {
-			wg_dbg("wg_tcp_listener_worker matched existing endpoint — reconnection\n");
 		}
 
 		{
@@ -2770,109 +2690,6 @@ void wg_get_endpoint_from_socket(struct socket *epsocket, struct endpoint *ep)
         printk(KERN_ERR "Unsupported address family: %d\n", family);
         return;
     }
-}
-
-int wg_tcp_queuepkt(struct wg_peer *peer, const void *data,
-                           size_t len)
-{
-	struct sk_buff *frame;
-	struct sk_buff *skb;
-	int ret;
-
-	wg_dbg("Entering function wg_tcp_queuepkt peer=%px\n", peer);
-
-	struct endpoint current_endpoint;
-	/* BUG FIX: current_endpoint was never initialized — reads garbage in log_wireguard_endpoint */
-	memset(&current_endpoint, 0, sizeof(current_endpoint));
-
-	if (!peer || IS_ERR(peer)) {
-		wg_dbg("Exiting function wg_tcp_queuepkt, no peer.\n");
-		return -EINVAL;
-	}
-	print_peer_socket_info(peer);
-	if (!data || len == 0) {
-		wg_dbg("Exiting function wg_tcp_queuepkt, invalid parameters\n");
-		return -EINVAL;
-	}
-
-	/* Print TCP-related flags */
-	wg_dbg("wg_peer: temp_peer = %d\n", peer->temp_peer);
-	wg_dbg("wg_peer: tcp_established = %d\n", peer->tcp_established);
-	wg_dbg("wg_peer: tcp_pending = %d\n", peer->tcp_pending);
-	wg_dbg("wg_peer: outbound_connected = %d\n", peer->outbound_connected);
-	wg_dbg("wg_peer: inbound_connected = %d\n", peer->inbound_connected);
-	wg_dbg("wg_peer: tcp_outbound_callbacks_set = %d\n", peer->tcp_outbound_callbacks_set);
-	wg_dbg("wg_peer: tcp_inbound_callbacks_set = %d\n", peer->tcp_inbound_callbacks_set);
-	log_wireguard_endpoint(&peer->endpoint);
-
-	peer = wg_find_peer_by_endpoints(peer->device, &peer->endpoint);
-	if (!peer || IS_ERR(peer)) {
-	wg_dbg("wg_queuepkt: No matching peer found for endpoint\n");
-	return -ENOENT;
-	}
-
-	skb = alloc_skb(len + SKB_HEADER_LEN, GFP_ATOMIC);
-	if (!skb) {
-		wg_dbg("Exiting function wg_tcp_queuepkt\n");
-		return -ENOMEM;
-	}
-
-	skb_reserve(skb, SKB_HEADER_LEN);
-	skb_put_data(skb, data, len);
-	memset(skb->cb, 0, sizeof(skb->cb));
-
-	/* Diagnostic: Print packet details and check for fragmentation markers */
-	wg_dbg("wg_tcp_queuepkt: Created skb=%px, len=%zu, skb->len=%u,"
-		"skb->data_len=%u\n", skb, len, skb->len, skb->data_len);
-	wg_dbg("wg_tcp_queuepkt: First 32 bytes: %*ph\n",
-		min_t(int, skb->len, 32), skb->data);  /* BUG FIX: was %*px (pointer with width) not %*ph (hex dump) */
-
-	/* Check if this looks like a fragmented packet (look for potential markers) */
-	if (skb->len >= 4) {
-		__be32 *potential_frag_header = (__be32 *)skb->data;
-		wg_dbg("wg_tcp_queuepkt: Potential frag header: "
-			"0x%08x\n", ntohl(*potential_frag_header));
-	}
-
-	/* If this packet will get a TCP encap header, show what we expect */
-	wg_dbg("wg_tcp_queuepkt: Expected TCP encap header length "
-		"will be: %zu + %zu = %zu\n", len, WG_TCP_ENCAP_HDR_LEN,
-		len + WG_TCP_ENCAP_HDR_LEN);
-
-	frame = wg_tcp_build_frame(skb);
-	kfree_skb(skb);
-	if (IS_ERR(frame))
-		return PTR_ERR(frame);
-	skb = frame;
-
-	if (!peer->peer_socket) {
-		/* peer connenction is down reconnect */
-		if (wg_tcp_connect(peer) < 0) {
-			kfree_skb(skb);
-			wg_dbg("Exiting function wg_tcp_queuepkt due to connection failure\n");
-			return -ECONNREFUSED; /* Connection attempt failed */
-		}
-	}
-
-	wg_dbg("Current endpoint:");
-	log_wireguard_endpoint(&current_endpoint);
-	wg_dbg("Peer endpoint:");
-	log_wireguard_endpoint(&peer->endpoint);
-	wg_dbg("Peer peer_endpoint:");
-	log_wireguard_endpoint(&peer->peer_endpoint);
-
-	if (!peer->tcp_established) {
-		/* peer connenction is down reconnect */
-		if (wg_tcp_connect(peer) < 0) {
-			kfree_skb(skb);
-			wg_dbg("Exiting function wg_tcp_queuepkt due to connection failure\n");
-			return -ECONNREFUSED; /* Connection attempt failed */
-		}
-	}
-	ret = wg_tcp_enqueue_frame(peer, skb);
-	print_peer_socket_info(peer);
-	wg_dbg("Exiting function wg_tcp_queuepkt\n");
-	return ret;
 }
 
 /* Simple checksum function for TCP encapsulation header */
