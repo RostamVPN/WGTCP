@@ -56,6 +56,34 @@ class TcpListenerContract(unittest.TestCase):
         self.assertNotIn("wg_tcp_queuepkt", self.socket)
         self.assertNotIn("wg_tcp_queuepkt", self.header)
 
+    def test_remote_driven_log_sites_are_ratelimited(self) -> None:
+        worker = section(
+            self.socket,
+            "int wg_tcp_listener_worker(",
+            "int wg_tcp_listener4_thread(",
+        )
+        reader = section(
+            self.socket,
+            "void wg_tcp_read_worker(",
+            "void wg_tcp_data_ready(",
+        )
+        socket_info = section(
+            source("kernel/wg_tcp_debug.c"),
+            "void print_peer_socket_info(",
+            "WireGuard-over-TCP Diagnostic Framework",
+        )
+
+        self.assertIn('pr_err_ratelimited("Error accepting new connection', worker)
+        self.assertIn(
+            'pr_err_ratelimited("Could not read accepted TCP peer address', worker
+        )
+        self.assertIn(
+            'net_dbg_ratelimited("wg_tcp_read_worker: kernel_recvmsg error', reader
+        )
+        self.assertNotIn('pr_err("wg_tcp_read_worker: kernel_recvmsg error', reader)
+        self.assertNotIn("printk(", socket_info)
+        self.assertNotIn("pr_warn(", socket_info)
+
     def test_listener_shutdown_precedes_thread_stop(self) -> None:
         release = section(
             self.socket,

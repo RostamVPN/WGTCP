@@ -1362,7 +1362,7 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 				break;
 			if (err == -EAGAIN || err == -ERESTARTSYS)
 				continue;
-			pr_err("Error accepting new connection: %d\n", err);
+			pr_err_ratelimited("Error accepting new connection: %d\n", err);
 		continue;
 		}
 
@@ -1388,7 +1388,7 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 			new_peer_connection, (struct sockaddr *)&new_endpoint.addr, 1);
 		if (err < 0 ||
 		    !wg_sockaddr_length_valid((const struct sockaddr *)&new_endpoint.addr, err)) {
-			pr_err("Could not read accepted TCP peer address: %d\n", err);
+			pr_err_ratelimited("Could not read accepted TCP peer address: %d\n", err);
 			kernel_sock_shutdown(new_peer_connection, SHUT_RDWR);
 			sock_release(new_peer_connection);
 			new_peer_connection = NULL;
@@ -2351,7 +2351,7 @@ void wg_tcp_state_change(struct sock *sk)
 
 	/* Check if socket_data is valid */
 	if (!socket_data || IS_ERR(socket_data)) {
-		pr_err("wg_tcp_state_change: Invalid or NULL socket_data for socket %px\n", sk);
+		pr_err_ratelimited("wg_tcp_state_change: Invalid or NULL socket_data for socket %p\n", sk);
 		goto unlock;
 	}
 
@@ -3365,7 +3365,7 @@ void wg_tcp_read_worker(struct work_struct *work)
 					wg_peer_discard_partial_read(peer);
 					break;
 				} else {
-					pr_err("wg_tcp_read_worker: kernel_recvmsg error=%zd peer=%llu received_len=%zu expected_len=%zu\n",
+					net_dbg_ratelimited("wg_tcp_read_worker: kernel_recvmsg error=%zd peer=%llu received_len=%zu expected_len=%zu\n",
 						read_bytes, peer->internal_id, peer->received_len, peer->expected_len);
 #if WG_TCP_DIAG_ENABLED
 					wg_tcp_diag_dump_sock(sk, "rx:read_worker:error", read_bytes, vec.iov_len);

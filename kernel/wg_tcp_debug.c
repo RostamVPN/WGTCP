@@ -939,7 +939,7 @@ void print_peer_socket_info(struct wg_peer *peer) {
 	} else if (peer->peer_socket == peer->outbound_socket) {
 		wg_dbg("peer_socket matches outbound_socket\n");
 	} else {
-		printk(KERN_WARNING "peer_socket does not match inbound_socket or outbound_socket\n");
+		wg_dbg("peer_socket does not match inbound_socket or outbound_socket\n");
 	}
 }
 
