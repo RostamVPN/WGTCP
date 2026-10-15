@@ -47,6 +47,18 @@
 #include <linux/version.h>
 #include "wg_tcp_debug.h"
 
+/* 7.1+ socket/udp_tunnel API churn: kernels < 7.1 use the old form, >= 7.1
+ * the new form (some distros backport the new API onto a 7.1 kernel). */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0)
+#define WG_IPV6_DST_LOOKUP_FLOW ip6_dst_lookup_flow
+#define WG_UDP_TUNNEL_SOCK_RELEASE(s) udp_tunnel_sock_release((s)->sk)
+#define WG_SETUP_UDP_TUNNEL_SOCK(net, s, cfg) setup_udp_tunnel_sock((net), (s)->sk, (cfg))
+#else
+#define WG_IPV6_DST_LOOKUP_FLOW ipv6_stub->ipv6_dst_lookup_flow
+#define WG_UDP_TUNNEL_SOCK_RELEASE(s) udp_tunnel_sock_release(s)
+#define WG_SETUP_UDP_TUNNEL_SOCK(net, s, cfg) setup_udp_tunnel_sock((net), (s), (cfg))
+#endif
+
 static int send4(struct wg_device *wg, struct sk_buff *skb,
 		 struct endpoint *endpoint, u8 ds, struct dst_cache *cache)
 {
@@ -123,7 +135,11 @@ static int send4(struct wg_device *wg, struct sk_buff *skb,
 	skb->ignore_df = 1;
 	udp_tunnel_xmit_skb(rt, sock, skb, fl.saddr, fl.daddr, ds,
 			    ip4_dst_hoplimit(&rt->dst), 0, fl.fl4_sport,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+			    fl.fl4_dport, false, false, 0);
+#else
 			    fl.fl4_dport, false, false);
+#endif
 	goto out;
 
 err:
@@ -179,7 +195,7 @@ static int send6(struct wg_device *wg, struct sk_buff *skb,
 			if (cache)
 				dst_cache_reset(cache);
 		}
-		dst = ipv6_stub->ipv6_dst_lookup_flow(sock_net(sock), sock, &fl,
+		dst = WG_IPV6_DST_LOOKUP_FLOW(sock_net(sock), sock, &fl,
 						      NULL);
 		if (unlikely(IS_ERR(dst))) {
 			ret = PTR_ERR(dst);
@@ -200,7 +216,11 @@ static int send6(struct wg_device *wg, struct sk_buff *skb,
 	skb->ignore_df = 1;
 	udp_tunnel6_xmit_skb(dst, sock, skb, skb->dev, &fl.saddr, &fl.daddr, ds,
 			     ip6_dst_hoplimit(dst), 0, fl.fl6_sport,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+			     fl.fl6_dport, false, 0);
+#else
 			     fl.fl6_dport, false);
+#endif
 	goto out;
 
 err:
@@ -347,7 +367,7 @@ static void sock_free(struct sock *sock)
 	if (unlikely(!sock))
 		return;
 	sk_clear_memalloc(sock);
-	udp_tunnel_sock_release(sock->sk_socket);
+	WG_UDP_TUNNEL_SOCK_RELEASE(sock->sk_socket);
 	wg_dbg("Exiting function sock_free\n");
 }
 
@@ -424,14 +444,14 @@ retry:
 	}
 	set_sock_opts(new4);
 
-	setup_udp_tunnel_sock(net, new4, &cfg);
+	WG_SETUP_UDP_TUNNEL_SOCK(net, new4, &cfg);
 
 #if IS_ENABLED(CONFIG_IPV6)
 	if (ipv6_mod_enabled()) {
 		port6.local_udp_port = inet_sk(new4->sk)->inet_sport;
 		ret = udp_sock_create(net, &port6, &new6);
 		if (ret < 0) {
-			udp_tunnel_sock_release(new4);
+			WG_UDP_TUNNEL_SOCK_RELEASE(new4);
 			if (ret == -EADDRINUSE && !port && retries++ < 100)
 				goto retry;
 			pr_err("%s: Could not create IPv6 socket\n",
@@ -441,7 +461,7 @@ retry:
 		set_sock_opts(new6);
 
 		/* Setup the IPv6 UDP tunnel socket with the same socket data */
-		setup_udp_tunnel_sock(net, new6, &cfg);
+		WG_SETUP_UDP_TUNNEL_SOCK(net, new6, &cfg);
 	}
 #endif
 

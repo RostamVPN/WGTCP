@@ -1,0 +1,8 @@
+PACKAGE_NAME="wgtcp"
+PACKAGE_VERSION="@DKMS_VER@"
+BUILT_MODULE_NAME[0]="wireguard"
+BUILT_MODULE_LOCATION[0]="kernel"
+DEST_MODULE_LOCATION[0]="/updates/dkms"
+MAKE[0]="make -C ${kernel_source_dir} M=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build/kernel CONFIG_WIREGUARD=m modules"
+CLEAN="make -C ${kernel_source_dir} M=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build/kernel clean"
+AUTOINSTALL="yes"

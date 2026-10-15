@@ -1,0 +1,32 @@
+Source: wgtcp
+Section: net
+Priority: optional
+Maintainer: ramjett <ramjett@ramnic.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: wgtcp-dkms
+Architecture: all
+Depends: ${misc:Depends},
+         dkms,
+         build-essential,
+         libmnl-dev,
+         pkg-config
+Recommends: wireguard-tools
+Description: WireGuard-over-TCP (WGTCP) module + wg tool, DKMS source
+ WGTCP adds a TCP carrier to WireGuard (in addition to the standard UDP
+ transport) for networks where UDP is blocked. This is a DKMS source
+ package: it ships the patched WireGuard module source and builds it
+ per-host, per-kernel at install time (and auto-rebuilds on kernel
+ upgrade). The built module is named wireguard and installs into
+ updates/dkms/, overriding the in-tree module via depmod precedence
+ (reversible: dkms remove restores stock). The modified wg userspace tool
+ (transport selector) is compiled on the host and installed to
+ /usr/local/bin/wg.
+ .
+ Architecture: all because the package carries source, not binaries; each
+ host compiles natively for its own kernel and architecture.
+ .
+ Single portable source: builds on Linux 6.12 through 7.2 via
+ LINUX_VERSION_CODE guards.

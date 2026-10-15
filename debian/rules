@@ -1,0 +1,33 @@
+#!/usr/bin/make -f
+
+DKMS_NAME := wgtcp
+DKMS_VER  := $(shell dpkg-parsechangelog -SVersion)
+PKGDIR    := debian/wgtcp-dkms
+SRCDIR    := $(PKGDIR)/usr/src/$(DKMS_NAME)-$(DKMS_VER)
+
+%:
+	dh $@
+
+# No compilation at package-build time — this is a source (DKMS) package;
+# the module + wg tool are built on the target host at install time.
+override_dh_auto_build:
+override_dh_auto_test:
+override_dh_auto_clean:
+
+override_dh_auto_install:
+	install -d $(SRCDIR)
+	cp -a kernel tools $(SRCDIR)/
+	# Strip any stray build artifacts so only source ships.
+	find $(SRCDIR) \( -name '*.o' -o -name '*.ko' -o -name '*.ko.*' \
+	        -o -name '*.mod' -o -name '*.mod.c' -o -name '.*.cmd' \
+	        -o -name 'Module.symvers' -o -name 'modules.order' \
+	        -o -name '*.d' \) -delete
+	install -m0644 debian/dkms.conf.in $(SRCDIR)/dkms.conf
+	sed -i 's/@DKMS_VER@/$(DKMS_VER)/g' $(SRCDIR)/dkms.conf
+
+# Substitute the version into the maintainer scripts after debhelper
+# expands #DEBHELPER#.
+override_dh_installdeb:
+	dh_installdeb
+	sed -i 's/@DKMS_VER@/$(DKMS_VER)/g' \
+	        $(PKGDIR)/DEBIAN/postinst $(PKGDIR)/DEBIAN/prerm

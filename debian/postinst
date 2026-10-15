@@ -1,0 +1,52 @@
+#!/bin/sh
+set -e
+
+NAME=wgtcp
+VERSION=@DKMS_VER@
+SRC=/usr/src/${NAME}-${VERSION}
+
+case "$1" in
+    configure)
+        # Register the source with DKMS.
+        if ! dkms status -m "$NAME" -v "$VERSION" 2>/dev/null | grep -q "$NAME"; then
+            dkms add -m "$NAME" -v "$VERSION" || true
+        fi
+
+        # Build for every installed kernel that has headers -- not only the
+        # running one. A kernel that's installed-but-not-booted (a pending
+        # upgrade) gets the module now, so a later reboot into it needs no
+        # re-run. Kernels without headers (e.g. an old running kernel whose
+        # headers were pruned from the mirror) are skipped, NOT fatal: the
+        # package still installs so apt / the ansible run stay green, and DKMS's
+        # own header hook builds for those kernels if/when their headers appear.
+        built=""
+        for kver in $(ls /lib/modules 2>/dev/null); do
+            [ -e "/lib/modules/$kver/build" ] || continue   # headers present?
+            if dkms install --force -m "$NAME" -v "$VERSION" -k "$kver"; then
+                built="$built $kver"
+            fi
+        done
+        if [ -z "$built" ]; then
+            echo "wgtcp: WARNING - no installed kernel has headers; module not built yet." \
+                 "Install linux-headers-amd64 (or the running kernel's headers);" \
+                 "DKMS will build automatically when they are present." >&2
+        fi
+
+        # Build + install the modified wg userspace tool on the host.
+        # Kept in /usr/local/bin so it never collides with wireguard-tools
+        # and wins on PATH.
+        if [ -f "${SRC}/tools/Makefile" ]; then
+            make -C "${SRC}/tools" -j"$(nproc)" >/dev/null
+            install -m0755 "${SRC}/tools/wg" /usr/local/bin/wg
+            # Clean build artifacts so the packaged /usr/src tree stays
+            # source-only (dpkg can then remove it cleanly on purge).
+            make -C "${SRC}/tools" clean >/dev/null 2>&1 || true
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

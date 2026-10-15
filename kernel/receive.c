@@ -449,8 +449,8 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 	}
 
 	if (unlikely(!READ_ONCE(keypair->receiving.is_valid) ||
-			wg_birthdate_has_expired(keypair->receiving.birthdate, REJECT_AFTER_TIME) ||
-			READ_ONCE(keypair->receiving_counter.counter) >= REJECT_AFTER_MESSAGES)) {
+		  wg_birthdate_has_expired(keypair->receiving.birthdate, REJECT_AFTER_TIME) ||
+		  READ_ONCE(keypair->receiving_counter.counter) >= REJECT_AFTER_MESSAGES)) {
 		WRITE_ONCE(keypair->receiving.is_valid, false);
 		wg_dbg("Keypair is invalid or expired: is_valid=%d, counter=%llu\n",
 		keypair->receiving.is_valid, keypair->receiving_counter.counter);
@@ -462,9 +462,11 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 	wg_dbg("Extracted nonce from skb: nonce=%llu\n", PACKET_CB(skb)->nonce);
 	wg_dbg("skb->data (before decryption): %*ph\n", skb->len, skb->data);
 
-	/* Ensure network header is part of the packet */
-	offset = skb->data - skb_network_header(skb);
-	wg_dbg("Pushing skb to preserve network header, offset=%u\n", offset);
+	/* We ensure that the network header is part of the packet before we
+	 * call skb_cow_data, so that there's no chance that data is removed
+	 * from the skb, so that later we can extract the original endpoint.
+	 */
+	offset = -skb_network_offset(skb);
 	skb_push(skb, offset);
 	num_frags = skb_cow_data(skb, 0, &trailer);
 	wg_dbg("num_frags after skb_cow_data: %d\n", num_frags);

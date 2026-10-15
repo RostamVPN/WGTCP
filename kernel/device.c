@@ -23,6 +23,16 @@
 #include <linux/suspend.h>
 #include <linux/spinlock.h>
 #include <linux/wireguard.h>
+
+/* WQ_PERCPU (enum, "bound to a specific CPU") was added to alloc_workqueue when
+ * per-CPU stopped being the implicit default. Debian backports it into 6.12
+ * point releases at different times, so a LINUX_VERSION_CODE guard would misfire
+ * across the fleet. HAVE_WQ_PERCPU is set by kernel/Makefile via a header probe. */
+#ifdef HAVE_WQ_PERCPU
+#define WG_WQ_PERCPU WQ_PERCPU
+#else
+#define WG_WQ_PERCPU 0
+#endif
 #include <net/dst_metadata.h>
 #include <net/gso.h>
 #include <net/icmp.h>
@@ -158,7 +168,7 @@ static int wg_pm_notification(struct notifier_block *nb, unsigned long action, v
 	list_for_each_entry(wg, &device_list, device_list) {
 		mutex_lock(&wg->device_update_lock);
 		list_for_each_entry(peer, &wg->peer_list, peer_list) {
-			del_timer(&peer->timer_zero_key_material);
+			timer_delete(&peer->timer_zero_key_material);
 			wg_noise_handshake_clear(&peer->handshake);
 			wg_noise_keypairs_clear(&peer->keypairs);
 		}
@@ -482,7 +492,6 @@ static const struct net_device_ops netdev_ops = {
 	.ndo_open		= wg_open,
 	.ndo_stop		= wg_stop,
 	.ndo_start_xmit		= wg_xmit,
-	.ndo_get_stats64	= dev_get_tstats64
 };
 
 static void wg_destruct(struct net_device *dev)
@@ -525,7 +534,6 @@ static void wg_destruct(struct net_device *dev)
 	rcu_barrier(); /* Wait for all the peers to be actually freed. */
 	wg_ratelimiter_uninit();
 	memzero_explicit(&wg->static_identity, sizeof(wg->static_identity));
-	free_percpu(dev->tstats);
 	kvfree(wg->index_hashtable);
 	kvfree(wg->peer_hashtable);
 	mutex_unlock(&wg->device_update_lock);
@@ -559,34 +567,48 @@ static void wg_setup(struct net_device *dev)
 	dev->type = ARPHRD_NONE;
 	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
 	dev->priv_flags |= IFF_NO_QUEUE;
-	dev->features |= NETIF_F_LLTX;
+	dev->lltx = true;
 	dev->features |= WG_NETDEV_FEATURES;
 	dev->hw_features |= WG_NETDEV_FEATURES;
 	dev->hw_enc_features |= WG_NETDEV_FEATURES;
 	dev->mtu = ETH_DATA_LEN - overhead;
 	dev->max_mtu = round_down(INT_MAX, MESSAGE_PADDING_MULTIPLE) - overhead;
+	dev->pcpu_stat_type = NETDEV_PCPU_STAT_TSTATS;
 
 	SET_NETDEV_DEVTYPE(dev, &device_type);
 
 	/* We need to keep the dst around in case of icmp replies. */
 	netif_keep_dst(dev);
 
-	memset(wg, 0, sizeof(*wg));
+	netif_set_tso_max_size(dev, GSO_MAX_SIZE);
+
 	wg->dev = dev;
 
 	wg_dbg("Exiting wg_setup: dev=%px\n", dev);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+static int wg_newlink(struct net_device *dev,
+		      struct rtnl_newlink_params *params,
+		      struct netlink_ext_ack *extack)
+{
+	struct net *link_net = rtnl_newlink_link_net(params);
+#else
 static int wg_newlink(struct net *src_net, struct net_device *dev,
 		      struct nlattr *tb[], struct nlattr *data[],
 		      struct netlink_ext_ack *extack)
 {
+#endif
 	struct wg_device *wg = netdev_priv(dev);
 	int ret = -ENOMEM;
 
-	wg_dbg("Entering wg_newlink: src_net=%px, dev=%px, tb=%px, data=%px, extack=%px\n", src_net, dev, tb, data, extack);
+	wg_dbg("Entering wg_newlink: dev=%px\n", dev);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+	rcu_assign_pointer(wg->creating_net, link_net);
+#else
 	rcu_assign_pointer(wg->creating_net, src_net);
+#endif
 	init_rwsem(&wg->static_identity.lock);
 	mutex_init(&wg->socket_update_lock);
 	mutex_init(&wg->device_update_lock);
@@ -610,14 +632,11 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 	if (!wg->index_hashtable)
 		goto err_free_peer_hashtable;
 
-	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-	if (!dev->tstats)
-		goto err_free_index_hashtable;
-
 	wg->handshake_receive_wq = alloc_workqueue("wg-kex-%s",
-			WQ_CPU_INTENSIVE | WQ_FREEZABLE, 0, dev->name);
+			WQ_CPU_INTENSIVE | WQ_FREEZABLE | WG_WQ_PERCPU, 0,
+			dev->name);
 	if (!wg->handshake_receive_wq)
-		goto err_free_tstats;
+		goto err_free_index_hashtable;
 
 	wg->handshake_send_wq = alloc_workqueue("wg-kex-%s",
 			WQ_UNBOUND | WQ_FREEZABLE, 0, dev->name);
@@ -625,7 +644,8 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 		goto err_destroy_handshake_receive;
 
 	wg->packet_crypt_wq = alloc_workqueue("wg-crypt-%s",
-			WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM, 0, dev->name);
+			WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM | WG_WQ_PERCPU, 0,
+			dev->name);
 	if (!wg->packet_crypt_wq)
 		goto err_destroy_handshake_send;
 
@@ -648,6 +668,9 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 	if (ret < 0)
 		goto err_free_handshake_queue;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+	netif_threaded_enable(dev);
+#endif
 	ret = register_netdevice(dev);
 	if (ret < 0)
 		goto err_uninit_ratelimiter;
@@ -668,7 +691,7 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 
 	pr_debug("%s: Interface created\n", dev->name);
 
-	wg_dbg("Exiting wg_newlink: src_net=%px, dev=%px, ret=%d\n", src_net, dev, ret);
+	wg_dbg("Exiting wg_newlink: dev=%px, ret=%d\n", dev, ret);
 	return ret;
 err_uninit_ratelimiter:
 	wg_ratelimiter_uninit();
@@ -684,13 +707,11 @@ err_destroy_handshake_send:
 	destroy_workqueue(wg->handshake_send_wq);
 err_destroy_handshake_receive:
 	destroy_workqueue(wg->handshake_receive_wq);
-err_free_tstats:
-	free_percpu(dev->tstats);
 err_free_index_hashtable:
 	kvfree(wg->index_hashtable);
 err_free_peer_hashtable:
 	kvfree(wg->peer_hashtable);
-	wg_dbg("Exiting wg_newlink with error: src_net=%px, dev=%px, ret=%d\n", src_net, dev, ret);
+	wg_dbg("Exiting wg_newlink with error: dev=%px, ret=%d\n", dev, ret);
 	return ret;
 }
 
@@ -720,7 +741,13 @@ static int wg_netns_init(struct net *net)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 2, 0)
+/* 7.2 replaced pernet .pre_exit with .exit_rtnl (called with rtnl already held). */
+static void __net_exit wg_netns_exit_rtnl(struct net *net,
+					  struct list_head *dev_kill_list)
+#else
 static void wg_netns_pre_exit(struct net *net)
+#endif
 {
 	struct wg_net *wn = net_generic(net, wg_net_id);
 	struct wg_device *wg;
@@ -733,7 +760,9 @@ static void wg_netns_pre_exit(struct net *net)
 	}
 	cancel_delayed_work_sync(&wn->fib_dispatch_work);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 2, 0)
 	rtnl_lock();
+#endif
 	list_for_each_entry(wg, &device_list, device_list) {
 		if (rcu_access_pointer(wg->creating_net) == net) {
 			pr_debug("%s: Creating namespace exiting\n", wg->dev->name);
@@ -759,14 +788,24 @@ static void wg_netns_pre_exit(struct net *net)
 			mutex_unlock(&wg->device_update_lock);
 		}
 	}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 2, 0)
 	rtnl_unlock();
+#endif
 
-	wg_dbg("Exiting wg_netns_pre_exit: net=%px\n", net);
+	wg_dbg("Exiting wg_netns_exit: net=%px\n", net);
 }
 
-static struct pernet_operations pernet_ops = {
+static struct pernet_operations pernet_ops
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 2, 0)
+	__read_mostly
+#endif
+= {
 	.init = wg_netns_init,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 2, 0)
+	.exit_rtnl = wg_netns_exit_rtnl,
+#else
 	.pre_exit = wg_netns_pre_exit,
+#endif
 	.id = &wg_net_id,
 	.size = sizeof(struct wg_net),
 };

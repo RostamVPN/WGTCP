@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+NAME=wgtcp
+VERSION=@DKMS_VER@
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Remove the DKMS module for this version (restores the stock
+        # in-tree wireguard.ko that DKMS archived on install).
+        if dkms status -m "$NAME" -v "$VERSION" 2>/dev/null | grep -q "$NAME"; then
+            dkms remove -m "$NAME" -v "$VERSION" --all || true
+        fi
+        ;;
+esac
+
+case "$1" in
+    remove)
+        # Only drop the wg tool on real removal; on upgrade the new
+        # postinst rebuilds it.
+        rm -f /usr/local/bin/wg
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

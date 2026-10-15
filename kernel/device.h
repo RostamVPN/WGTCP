@@ -44,7 +44,11 @@ struct prev_queue {
 
 struct endpoint {
 	union {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+		struct sockaddr_inet addr;	/* 7.0+: large enough for both families */
+#else
 		struct sockaddr addr;
+#endif
 		struct sockaddr_in addr4;
 		struct sockaddr_in6 addr6;
 	};

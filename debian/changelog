@@ -1,0 +1,29 @@
+wgtcp (1.0.0+redteam3) stable; urgency=medium
+
+  * DKMS install: build for every installed kernel that has headers, not only
+    the running one, and never abort when a kernel lacks headers. Lets a host
+    build the module for an installed-but-not-booted kernel (pending upgrade) so
+    a later reboot needs no re-run, and keeps the package install green on a host
+    whose running-kernel headers were pruned from the mirror.
+
+ -- 0xinf0 <sina@redteam.net>  Thu, 17 Sep 2026 02:38:46 +0000
+
+wgtcp (1.0.0+redteam2) stable; urgency=medium
+
+  * Portability: build on the fleet's older 6.12 point releases. Replace
+    kvmalloc_obj()/kvzalloc_objs() (backported into 6.12.107+ only) with the
+    universal kvmalloc(sizeof())/kvcalloc(), and feature-detect WQ_PERCPU at
+    build time (Debian backports it unevenly across 6.12 point releases). Fixes
+    the DKMS build on 6.12.73/.90/.94/.96; 6.12.107 and 7.x unaffected.
+
+ -- 0xinf0 <sina@redteam.net>  Thu, 17 Sep 2026 01:24:07 +0000
+
+wgtcp (1.0.0+redteam1) stable; urgency=medium
+
+  * Portable port of secwest/WGTCP as a single source that builds on Linux
+    6.12 through 7.2 (kernel module rebased onto in-tree wireguard per kernel
+    via LINUX_VERSION_CODE guards; wg tool from wireguard-tools).
+  * Ship as an arch:all DKMS source package: module built per-host per-kernel,
+    auto-rebuilds on kernel upgrade; wg tool built on host into /usr/local/bin.
+
+ -- 0xinf0 <sina@redteam.net>  Sun, 14 Sep 2026 00:00:00 +0000

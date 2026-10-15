@@ -18,6 +18,14 @@
 #include <linux/if_ether.h>
 #include <linux/inetdevice.h>
 #include <linux/wireguard.h>
+
+/* 7.0 changed kernel_bind/kernel_connect/getname to struct sockaddr_unsized *
+ * (struct sockaddr is deprecated in-kernel). Layout-compatible, so cast. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+#define WG_KSA(a) ((struct sockaddr_unsized *)(void *)(a))
+#else
+#define WG_KSA(a) ((struct sockaddr *)(a))
+#endif
 #include <linux/ip.h>
 #include <linux/kernel.h>
 #include <linux/kref.h>
@@ -846,7 +854,7 @@ static bool wg_sockaddr_length_valid(const struct sockaddr *addr, int length)
 static bool wg_endpoints_match(const struct endpoint *a,
 			       const struct endpoint *b)
 {
-	return a && b && wg_sockaddrs_match(&a->addr, &b->addr);
+	return a && b && wg_sockaddrs_match((const struct sockaddr *)&a->addr, (const struct sockaddr *)&b->addr);
 }
 
 static bool wg_tcp_accept_source_matches(
@@ -1423,17 +1431,17 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 
 		memset(&new_endpoint, 0, sizeof(new_endpoint));
 		err = new_peer_connection->ops->getname(
-			new_peer_connection, &new_endpoint.addr, 1);
+			new_peer_connection, (struct sockaddr *)&new_endpoint.addr, 1);
 		if (err < 0 ||
-		    !wg_sockaddr_length_valid(&new_endpoint.addr, err)) {
+		    !wg_sockaddr_length_valid((const struct sockaddr *)&new_endpoint.addr, err)) {
 			pr_err("Could not read accepted TCP peer address: %d\n", err);
 			kernel_sock_shutdown(new_peer_connection, SHUT_RDWR);
 			sock_release(new_peer_connection);
 			new_peer_connection = NULL;
 			continue;
 		}
-		if (!wg_tcp_accept_rate_allow(wg, &new_endpoint.addr) ||
-		    wg_tcp_source_at_capacity(wg, &new_endpoint.addr)) {
+		if (!wg_tcp_accept_rate_allow(wg, (const struct sockaddr *)&new_endpoint.addr) ||
+		    wg_tcp_source_at_capacity(wg, (const struct sockaddr *)&new_endpoint.addr)) {
 			pr_debug_ratelimited(
 				"%s: throttling unauthenticated TCP source %pISpc\n",
 				wg->dev->name, &new_endpoint.addr);
@@ -1503,7 +1511,7 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 					}
 
 					if (wg_sockaddrs_match(
-						    &new_endpoint.addr,
+						    (const struct sockaddr *)&new_endpoint.addr,
 						    (const struct sockaddr *)&socket_iter->src_addr)) {
 						found = true;
 						old_pending_socket = socket_iter->tcp_socket;
@@ -1692,7 +1700,7 @@ int wg_setup_tcp_listen4(struct wg_device *wg, struct net *net, u16 port,
 	sock_set_reuseport(socket->sk);
 
 	wg_dbg("Binding IPv4 socket\n");
-	ret = kernel_bind(socket, (struct sockaddr *)&addr4, sizeof(addr4));
+	ret = kernel_bind(socket, WG_KSA(&addr4), sizeof(addr4));
 	if (ret < 0) {
 		pr_err("%s: Could not bind IPv4 TCP socket, error: %d\n", wg->dev->name, ret);
 		goto error;
@@ -1753,7 +1761,7 @@ int wg_setup_tcp_listen6(struct wg_device *wg, struct net *net, u16 port,
 	}
 
 	wg_dbg("Binding IPv6 socket\n");
-	ret = kernel_bind(socket, (struct sockaddr *)&addr6, sizeof(addr6));
+	ret = kernel_bind(socket, WG_KSA(&addr6), sizeof(addr6));
 	if (ret < 0) {
 		pr_err("%s: Could not bind IPv6 TCP socket, error: %d\n", wg->dev->name, ret);
 		goto error;
@@ -2226,7 +2234,7 @@ int wg_tcp_connect(struct wg_peer *peer)
 
 	/* Initiate the non-blocking connect */
 	wg_dbg("Initiating non-blocking connect\n");
-	ret = kernel_connect(socket, addr,
+	ret = kernel_connect(socket, WG_KSA(addr),
 			     addr->sa_family == AF_INET ?
 				     sizeof(struct sockaddr_in) :
 				     sizeof(struct sockaddr_in6),
