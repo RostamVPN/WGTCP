@@ -68,8 +68,8 @@ void debug_skb(const struct sk_buff *askb)
 	end = skb_end_pointer(askb);
 
 	wg_dbg("==== Enhanced SKB Dump Start ====\n");
-	wg_dbg("skb=%px\n", askb);
-	wg_dbg("head=%px, data=%px, tail=%px, end=%px\n",
+	wg_dbg("skb=%p\n", askb);
+	wg_dbg("head=%p, data=%p, tail=%p, end=%p\n",
 	       askb->head, askb->data,
 	       skb_tail_pointer(askb), end);
 	wg_dbg("len=%u, data_len=%u, truesize=%u\n",
@@ -597,7 +597,7 @@ void decode_and_print_packet(const struct sk_buff *skb, const char *prefix)
 		       "WS: %u "
 		       "C: 0x%04x "
 		       "U: %u "
-		       "skb: %px len: %u\n",
+		       "skb: %p len: %u\n",
 		       prefix,
 		       &ip_header->saddr,
 		       &ip_header->daddr,
@@ -635,7 +635,7 @@ void decode_and_print_packet(const struct sk_buff *skb, const char *prefix)
 		       "DP: %u "
 		       "L: %u "
 		       "C: 0x%04x "
-		       "skb: %px len: %u\n",
+		       "skb: %p len: %u\n",
 		       prefix,
 		       &ip_header->saddr,
 		       &ip_header->daddr,
@@ -646,7 +646,7 @@ void decode_and_print_packet(const struct sk_buff *skb, const char *prefix)
 		       skb, skb->len);
 
 		/* Print skb address and length */
-		wg_dbg("%sskb address: %px, skb length: %u\n", prefix, skb, skb->len);
+		wg_dbg("%sskb address: %p, skb length: %u\n", prefix, skb, skb->len);
 		break;
 
         case IPPROTO_ICMP:
@@ -670,7 +670,7 @@ void decode_and_print_packet(const struct sk_buff *skb, const char *prefix)
 		       "Type: %u "
 		       "Code: %u "
 		       "C: 0x%04x "
-		       "skb: %px len: %u\n",
+		       "skb: %p len: %u\n",
 		       prefix,
 		       &ip_header->saddr,
 		       &ip_header->daddr,
@@ -700,18 +700,18 @@ void decode_and_print_packet(const struct sk_buff *skb, const char *prefix)
 		}
 
 		/* Print skb address and length */
-		wg_dbg("%sskb address: %px, skb length: %u\n", prefix, skb, skb->len);
+		wg_dbg("%sskb address: %p, skb length: %u\n", prefix, skb, skb->len);
 		break;
 
         default:
 		/* Handle unsupported protocols */
 		/* BUG FIX: format string was split by comma after D: %pI4\n —
-		* "skb: %px len: %u\n" was passed as %s arg, shifting all args (UB/crash)
+		* "skb: %p len: %u\n" was passed as %s arg, shifting all args (UB/crash)
 		*/
 		wg_dbg("%s#### Unsupported Protocol: %u "
 		       "S: %pI4 "
 		       "D: %pI4 "
-		       "skb: %px len: %u\n",
+		       "skb: %p len: %u\n",
 		       prefix,
 		       ip_header->protocol,
 		       &ip_header->saddr,
@@ -719,7 +719,7 @@ void decode_and_print_packet(const struct sk_buff *skb, const char *prefix)
 		       skb, skb->len);
 
 		/* Print skb address and length */
-		wg_dbg("%sskb address: %px, skb length: %u\n", prefix, skb, skb->len);
+		wg_dbg("%sskb address: %p, skb length: %u\n", prefix, skb, skb->len);
 		break;
 	}
 }
@@ -751,7 +751,7 @@ void print_wg_peer(struct wg_peer *peer)
 	}
 
 	wg_dbg("WG Peer Complete Diagnostic Info:\n");
-	wg_dbg("Device Pointer: %px, Serial Work CPU: %d, "
+	wg_dbg("Device Pointer: %p, Serial Work CPU: %d, "
 	       "Is Dead: %d, (Device) Transport Mode: %u\n",
 	       peer->device, peer->serial_work_cpu, peer->is_dead,
 	       peer->device->transport);
@@ -783,7 +783,7 @@ void print_wg_peer(struct wg_peer *peer)
 
 	/* Additional diagnostics and corrections for TCP */
 	if (peer->peer_socket) {
-		wg_dbg("TCP Socket: %px, Established: %d\n",
+		wg_dbg("TCP Socket: %p, Established: %d\n",
 		       peer->peer_socket, peer->tcp_established);
 		if (!skb_queue_empty(&peer->send_queue)) {
 			print_skbuff_head_info("TCP Packet Queue",
@@ -808,7 +808,7 @@ void print_wg_peer(struct wg_peer *peer)
 	       peer->timer_persistent_keepalive.expires);
 
 	/* RCU and reference count */
-	wg_dbg("RCU Head Address: %px, Reference Count: %d\n",
+	wg_dbg("RCU Head Address: %p, Reference Count: %d\n",
 	       &peer->rcu, kref_read(&peer->refcount));
 }
 
@@ -822,7 +822,7 @@ void print_crypt_queue(const char *label, struct crypt_queue *queue)
 	wg_dbg("%s:\n", label);
 	wg_dbg("  Last CPU used: %d\n", queue->last_cpu);
 	if (queue->worker)
-		wg_dbg("  Worker pointer: %px\n", queue->worker);
+		wg_dbg("  Worker pointer: %p\n", queue->worker);
 	else
 		wg_dbg("  Worker: NULL\n");
 }
@@ -846,29 +846,29 @@ void print_wg_device(struct wg_device *device)
 	print_crypt_queue("Handshake Queue", &(device->handshake_queue));
 
 	if (rcu_access_pointer(device->tcp_listen_socket4))
-		wg_dbg("IPv4 Socket: %px\n", device->tcp_listen_socket4);
+		wg_dbg("IPv4 Socket: %p\n", device->tcp_listen_socket4);
 	else
 		wg_dbg("IPv4 Socket: NULL\n");
 
 	if (rcu_access_pointer(device->tcp_listen_socket6))
-		wg_dbg("IPv6 Socket: %px\n", device->tcp_listen_socket6);
+		wg_dbg("IPv6 Socket: %p\n", device->tcp_listen_socket6);
 	else
 		wg_dbg("IPv6 Socket: NULL\n");
 
 	if (rcu_access_pointer(device->tcp_listen_socket4))
-		wg_dbg("TCP Listener IPv4 Socket: %px\n",
+		wg_dbg("TCP Listener IPv4 Socket: %p\n",
 				device->tcp_listen_socket4);
 	else
 		wg_dbg("TCP Listener IPv4 Socket: NULL\n");
 
 	if (rcu_access_pointer(device->tcp_listen_socket6))
-		wg_dbg("TCP Listener IPv6 Socket: %px\n",
+		wg_dbg("TCP Listener IPv6 Socket: %p\n",
 				device->tcp_listen_socket6);
 	else
 		wg_dbg("TCP Listener IPv6 Socket: NULL\n");
 
 	if (device->creating_net)
-		wg_dbg("Creating net namespace: %px\n",
+		wg_dbg("Creating net namespace: %p\n",
 				device->creating_net);
 	else
 		wg_dbg("Creating net namespace: NULL\n");
@@ -891,10 +891,10 @@ void print_tcp_socket_info(struct socket *sock, const char *label) {
 		user_data = (struct wg_socket_data *)sk->sk_user_data;
 		tcp_state = (sk->sk_protocol == IPPROTO_TCP) ? sk->sk_state : -1;
 		if (user_data) {
-		wg_dbg("%s: socket=%px, sk_user_data=%px (device=%px, peer=%px, inbound=%d), TCP state=%d\n",
+		wg_dbg("%s: socket=%p, sk_user_data=%p (device=%p, peer=%p, inbound=%d), TCP state=%d\n",
 		       label, sock, user_data, user_data->device, user_data->peer, user_data->inbound, tcp_state);
 		} else {
-			wg_dbg("%s: socket=%px, sk_user_data=NULL, TCP state=%d\n",
+			wg_dbg("%s: socket=%p, sk_user_data=NULL, TCP state=%d\n",
 			label, sock, tcp_state);
 		}
 	} else {
@@ -910,7 +910,7 @@ void print_peer_socket_info(struct wg_peer *peer) {
         }
 
         /* Print the pointers to the main sockets in the peer */
-	wg_dbg("Peer: %px, peer_socket=%px, inbound_socket=%px, outbound_socket=%px\n",
+	wg_dbg("Peer: %p, peer_socket=%p, inbound_socket=%p, outbound_socket=%p\n",
 	       peer, peer->peer_socket, peer->inbound_socket, peer->outbound_socket);
 
 	/* Print inbound timestamp */
@@ -1095,7 +1095,7 @@ void wg_tcp_diag_dump_sock(struct sock *sk, const char *where,
 	recvq_len  = skb_queue_len(&sk->sk_receive_queue);
 
 	wg_diag(
-		"%s: tcpdiag[%s] peer=%llu inbound=%d sk=%px state=%s(%u) err=%d shut=%u io=%zd/%zu "
+		"%s: tcpdiag[%s] peer=%llu inbound=%d sk=%p state=%s(%u) err=%d shut=%u io=%zd/%zu "
 		"lcl=%s rmt=%s "
 		"snd_wnd=%u rcv_wnd=%u cwnd=%u ssthresh=%u "
 		"snd_una=%u snd_nxt=%u rcv_nxt=%u inflight=%u "

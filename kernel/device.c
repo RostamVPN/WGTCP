@@ -62,7 +62,7 @@ static int wg_open(struct net_device *dev)
 	u16 requested_port = wg->incoming_port;
 	int ret = 0;
 
-	wg_dbg("Entering wg_open: dev=%px\n", dev);
+	wg_dbg("Entering wg_open: dev=%p\n", dev);
 	WRITE_ONCE(wg->tcp_cleanup_scheduled,
 		   wg->transport == WG_TRANSPORT_TCP);
 
@@ -128,7 +128,7 @@ static int wg_open(struct net_device *dev)
 			wg_packet_send_keepalive(peer);
 	}
 	mutex_unlock(&wg->device_update_lock);
-	wg_dbg("Exiting wg_open: dev=%px, ret=%d\n", dev, ret);
+	wg_dbg("Exiting wg_open: dev=%p, ret=%d\n", dev, ret);
 	return ret;
 
 err_tcp_open:
@@ -147,7 +147,7 @@ static int wg_pm_notification(struct notifier_block *nb, unsigned long action, v
 	struct wg_device *wg;
 	struct wg_peer *peer;
 
-	wg_dbg("Entering wg_pm_notification: nb=%px, action=%lu, data=%px\n", nb, action, data);
+	wg_dbg("Entering wg_pm_notification: nb=%p, action=%lu, data=%p\n", nb, action, data);
 
 	/* If the machine is constantly suspending and resuming, as part of
 	 * its normal operation rather than as a somewhat rare event, then we
@@ -155,12 +155,12 @@ static int wg_pm_notification(struct notifier_block *nb, unsigned long action, v
 	 */
 	if (IS_ENABLED(CONFIG_PM_AUTOSLEEP) ||
 	    IS_ENABLED(CONFIG_PM_USERSPACE_AUTOSLEEP)) {
-		wg_dbg("Exiting wg_pm_notification (no action): nb=%px, action=%lu, data=%px\n", nb, action, data);
+		wg_dbg("Exiting wg_pm_notification (no action): nb=%p, action=%lu, data=%p\n", nb, action, data);
 		return 0;
 	}
 
 	if (action != PM_HIBERNATION_PREPARE && action != PM_SUSPEND_PREPARE) {
-		wg_dbg("Exiting wg_pm_notification (no action): nb=%px, action=%lu, data=%px\n", nb, action, data);
+		wg_dbg("Exiting wg_pm_notification (no action): nb=%p, action=%lu, data=%p\n", nb, action, data);
 		return 0;
 	}
 
@@ -176,7 +176,7 @@ static int wg_pm_notification(struct notifier_block *nb, unsigned long action, v
 	}
 	rtnl_unlock();
 	rcu_barrier();
-	wg_dbg("Exiting wg_pm_notification: nb=%px, action=%lu, data=%px\n", nb, action, data);
+	wg_dbg("Exiting wg_pm_notification: nb=%p, action=%lu, data=%p\n", nb, action, data);
 	return 0;
 }
 
@@ -187,7 +187,7 @@ static int wg_vm_notification(struct notifier_block *nb, unsigned long action, v
 	struct wg_device *wg;
 	struct wg_peer *peer;
 
-	wg_dbg("Entering wg_vm_notification: nb=%px, action=%lu, data=%px\n", nb, action, data);
+	wg_dbg("Entering wg_vm_notification: nb=%p, action=%lu, data=%p\n", nb, action, data);
 
 	rtnl_lock();
 	list_for_each_entry(wg, &device_list, device_list) {
@@ -197,7 +197,7 @@ static int wg_vm_notification(struct notifier_block *nb, unsigned long action, v
 		mutex_unlock(&wg->device_update_lock);
 	}
 	rtnl_unlock();
-	wg_dbg("Exiting wg_vm_notification: nb=%px, action=%lu, data=%px\n", nb, action, data);
+	wg_dbg("Exiting wg_vm_notification: nb=%p, action=%lu, data=%p\n", nb, action, data);
 	return 0;
 }
 
@@ -345,7 +345,7 @@ static int wg_stop(struct net_device *dev)
 	struct wg_peer *peer;
 	struct sk_buff *skb;
 
-	wg_dbg("Entering wg_stop: dev=%px\n", dev);
+	wg_dbg("Entering wg_stop: dev=%p\n", dev);
 	WRITE_ONCE(wg->tcp_cleanup_scheduled, false);
 	cancel_delayed_work_sync(&wg->tcp_route_work);
 	mutex_lock(&wg->device_update_lock);
@@ -381,7 +381,7 @@ static int wg_stop(struct net_device *dev)
 
 	wg_socket_reinit(wg, NULL, NULL);
 
-	wg_dbg("Exiting wg_stop: dev=%px\n", dev);
+	wg_dbg("Exiting wg_stop: dev=%p\n", dev);
 	return 0;
 }
 
@@ -395,7 +395,7 @@ static netdev_tx_t wg_xmit(struct sk_buff *skb, struct net_device *dev)
 	u32 mtu;
 	int ret;
 
-	wg_dbg("Entering wg_xmit: skb=%px, dev=%px\n", skb, dev);
+	wg_dbg("Entering wg_xmit: skb=%p, dev=%p\n", skb, dev);
 
 	if (unlikely(!wg_check_packet_protocol(skb))) {
 		ret = -EPROTONOSUPPORT;
@@ -471,7 +471,7 @@ static netdev_tx_t wg_xmit(struct sk_buff *skb, struct net_device *dev)
 	wg_packet_send_staged_packets(peer);
 
 	wg_peer_put(peer);
-	wg_dbg("Exiting wg_xmit: skb=%px, dev=%px\n", skb, dev);
+	wg_dbg("Exiting wg_xmit: skb=%p, dev=%p\n", skb, dev);
 	return NETDEV_TX_OK;
 
 err_peer:
@@ -484,7 +484,7 @@ err_icmp:
 err:
 	DEV_STATS_INC(dev, tx_errors);
 	kfree_skb(skb);
-	wg_dbg("Exiting wg_xmit with error: skb=%px, dev=%px, ret=%d\n", skb, dev, ret);
+	wg_dbg("Exiting wg_xmit with error: skb=%p, dev=%p, ret=%d\n", skb, dev, ret);
 	return ret;
 }
 
@@ -498,7 +498,7 @@ static void wg_destruct(struct net_device *dev)
 {
 	struct wg_device *wg = netdev_priv(dev);
 
-	wg_dbg("Entering wg_destruct: dev=%px\n", dev);
+	wg_dbg("Entering wg_destruct: dev=%p\n", dev);
 
 	rtnl_lock();
 	list_del(&wg->device_list);
@@ -541,7 +541,7 @@ static void wg_destruct(struct net_device *dev)
 	pr_debug("%s: Interface destroyed\n", dev->name);
 	free_netdev(dev);
 
-	wg_dbg("Exiting wg_destruct: dev=%px\n", dev);
+	wg_dbg("Exiting wg_destruct: dev=%p\n", dev);
 }
 
 static const struct device_type device_type = { .name = KBUILD_MODNAME };
@@ -556,7 +556,7 @@ static void wg_setup(struct net_device *dev)
 			     max(sizeof(struct ipv6hdr), sizeof(struct iphdr)) +
 			     (wg->transport == WG_TRANSPORT_TCP ? WG_TCP_ENCAP_HDR_LEN : 0);
 
-	wg_dbg("Entering wg_setup: dev=%px\n", dev);
+	wg_dbg("Entering wg_setup: dev=%p\n", dev);
 
 	dev->netdev_ops = &netdev_ops;
 	dev->header_ops = &ip_tunnel_header_ops;
@@ -584,7 +584,7 @@ static void wg_setup(struct net_device *dev)
 
 	wg->dev = dev;
 
-	wg_dbg("Exiting wg_setup: dev=%px\n", dev);
+	wg_dbg("Exiting wg_setup: dev=%p\n", dev);
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
@@ -602,7 +602,7 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 	struct wg_device *wg = netdev_priv(dev);
 	int ret = -ENOMEM;
 
-	wg_dbg("Entering wg_newlink: dev=%px\n", dev);
+	wg_dbg("Entering wg_newlink: dev=%p\n", dev);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
 	rcu_assign_pointer(wg->creating_net, link_net);
@@ -691,7 +691,7 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 
 	pr_debug("%s: Interface created\n", dev->name);
 
-	wg_dbg("Exiting wg_newlink: dev=%px, ret=%d\n", dev, ret);
+	wg_dbg("Exiting wg_newlink: dev=%p, ret=%d\n", dev, ret);
 	return ret;
 err_uninit_ratelimiter:
 	wg_ratelimiter_uninit();
@@ -711,7 +711,7 @@ err_free_index_hashtable:
 	kvfree(wg->index_hashtable);
 err_free_peer_hashtable:
 	kvfree(wg->peer_hashtable);
-	wg_dbg("Exiting wg_newlink with error: dev=%px, ret=%d\n", dev, ret);
+	wg_dbg("Exiting wg_newlink with error: dev=%p, ret=%d\n", dev, ret);
 	return ret;
 }
 
@@ -753,7 +753,7 @@ static void wg_netns_pre_exit(struct net *net)
 	struct wg_device *wg;
 	struct wg_peer *peer;
 
-	wg_dbg("Entering wg_netns_pre_exit: net=%px\n", net);
+	wg_dbg("Entering wg_netns_pre_exit: net=%p\n", net);
 	if (READ_ONCE(wn->fib_registered)) {
 		WRITE_ONCE(wn->fib_registered, false);
 		unregister_fib_notifier(net, &wn->fib_notifier);
@@ -792,7 +792,7 @@ static void wg_netns_pre_exit(struct net *net)
 	rtnl_unlock();
 #endif
 
-	wg_dbg("Exiting wg_netns_exit: net=%px\n", net);
+	wg_dbg("Exiting wg_netns_exit: net=%p\n", net);
 }
 
 static struct pernet_operations pernet_ops

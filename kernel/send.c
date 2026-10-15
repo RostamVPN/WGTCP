@@ -42,11 +42,11 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 	struct message_handshake_initiation packet;
 
 	/* Enter function with peer information */
-	wg_dbg("Entering wg_packet_send_handshake_initiation with peer=%px\n", peer);
+	wg_dbg("Entering wg_packet_send_handshake_initiation with peer=%p\n", peer);
 
 	/* Check rate limiting */
 	if (!wg_birthdate_has_expired(atomic64_read(&peer->last_sent_handshake), REKEY_TIMEOUT)) {
-		wg_dbg("wg_packet_send_handshake_initiation: Handshake rate limit not expired for peer=%px\n", peer);
+		wg_dbg("wg_packet_send_handshake_initiation: Handshake rate limit not expired for peer=%p\n", peer);
 		wg_dbg("Exiting wg_packet_send_handshake_initiation\n");
 		return;
 	}
@@ -61,7 +61,7 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 
 	/* Create handshake initiation */
 	if (wg_noise_handshake_create_initiation(&packet, &peer->handshake)) {
-		wg_dbg("wg_packet_send_handshake_initiation: Handshake initiation created successfully for peer=%px\n", peer);
+		wg_dbg("wg_packet_send_handshake_initiation: Handshake initiation created successfully for peer=%p\n", peer);
 
 		/* Print out the contents of the handshake initiation packet */
 		wg_dbg("wg_packet_send_handshake_initiation: Handshake packet contents: %*ph\n",
@@ -69,7 +69,7 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 
 		/* Add MAC to packet */
 		wg_cookie_add_mac_to_packet(&packet, sizeof(packet), peer);
-		wg_dbg("wg_packet_send_handshake_initiation: MAC added to handshake packet for peer=%px\n", peer);
+		wg_dbg("wg_packet_send_handshake_initiation: MAC added to handshake packet for peer=%p\n", peer);
 
 		/* Timers and sending operations */
 		wg_timers_any_authenticated_packet_traversal(peer);
@@ -80,13 +80,13 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 
 		/* Send the handshake packet */
 		wg_socket_send_buffer_to_peer(peer, &packet, sizeof(packet), HANDSHAKE_DSCP);
-		wg_dbg("wg_packet_send_handshake_initiation: Handshake packet sent to peer=%px\n", peer);
+		wg_dbg("wg_packet_send_handshake_initiation: Handshake packet sent to peer=%p\n", peer);
 
 		/* Mark handshake initiation complete */
 		wg_timers_handshake_initiated(peer);
 	} else {
 		/* Log failure to create handshake initiation */
-		wg_dbg("wg_packet_send_handshake_initiation: Failed to create handshake initiation for peer=%px\n", peer);
+		wg_dbg("wg_packet_send_handshake_initiation: Failed to create handshake initiation for peer=%p\n", peer);
 	}
 
 	/* Exit function */
@@ -95,7 +95,7 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 
 void wg_packet_handshake_send_worker(struct work_struct *work)
 {
-	wg_dbg("Entering wg_packet_handshake_send_worker with work=%px\n", work);
+	wg_dbg("Entering wg_packet_handshake_send_worker with work=%p\n", work);
 	struct wg_peer *peer = container_of(work, struct wg_peer,
 					    transmit_handshake_work);
 
@@ -107,7 +107,7 @@ void wg_packet_handshake_send_worker(struct work_struct *work)
 void wg_packet_send_queued_handshake_initiation(struct wg_peer *peer,
 						bool is_retry)
 {
-	wg_dbg("Entering wg_packet_send_queued_handshake_initiation with peer=%px, is_retry=%d\n", peer, is_retry);
+	wg_dbg("Entering wg_packet_send_queued_handshake_initiation with peer=%p, is_retry=%d\n", peer, is_retry);
 	if (!is_retry)
 		peer->timer_handshake_attempts = 0;
 
@@ -138,7 +138,7 @@ out:
 
 void wg_packet_send_handshake_response(struct wg_peer *peer)
 {
-	wg_dbg("Entering wg_packet_send_handshake_response with peer=%px\n", peer);
+	wg_dbg("Entering wg_packet_send_handshake_response with peer=%p\n", peer);
 	struct message_handshake_response packet;
 
 	atomic64_set(&peer->last_sent_handshake, ktime_get_coarse_boottime_ns());
@@ -152,7 +152,7 @@ void wg_packet_send_handshake_response(struct wg_peer *peer)
 		wg_dbg("MAC added to handshake response packet\n");
 		wg_dbg("Handshake Response Packet: %*ph\n",
 			(int)sizeof(packet), &packet);
-		wg_dbg("Peer Cookie Parameters: peer=%px, handshake=%px, index=%u\n",
+		wg_dbg("Peer Cookie Parameters: peer=%p, handshake=%p, index=%u\n",
 			peer, &peer->handshake, packet.sender_index);
 
 
@@ -175,7 +175,7 @@ void wg_packet_send_handshake_cookie(struct wg_device *wg,
 				     struct sk_buff *initiating_skb,
 				     __le32 sender_index)
 {
-	wg_dbg("Entering wg_packet_send_handshake_cookie with wg=%px, initiating_skb=%px, sender_index=%u\n", wg, initiating_skb, sender_index);
+	wg_dbg("Entering wg_packet_send_handshake_cookie with wg=%p, initiating_skb=%p, sender_index=%u\n", wg, initiating_skb, sender_index);
 	struct message_handshake_cookie packet;
 
 	wg_dbg("Creating handshake cookie\n");
@@ -183,7 +183,7 @@ void wg_packet_send_handshake_cookie(struct wg_device *wg,
 	wg_dbg("Initiating SKB Data: %*ph\n",
 	(int)initiating_skb->len, initiating_skb->data);
 
-	wg_dbg("Cookie Checker: %px\n", &wg->cookie_checker);
+	wg_dbg("Cookie Checker: %p\n", &wg->cookie_checker);
 
 
 	net_dbg_skb_ratelimited("%s: Sending cookie response for denied handshake message for %pISpfsc\n",
@@ -202,7 +202,7 @@ void wg_packet_send_handshake_cookie(struct wg_device *wg,
 
 static void keep_key_fresh(struct wg_peer *peer)
 {
-	wg_dbg("Entering keep_key_fresh with peer=%px\n", peer);
+	wg_dbg("Entering keep_key_fresh with peer=%p\n", peer);
 	struct noise_keypair *keypair;
 	bool send;
 
@@ -221,7 +221,7 @@ static void keep_key_fresh(struct wg_peer *peer)
 
 static unsigned int calculate_skb_padding(struct sk_buff *skb)
 {
-	wg_dbg("Entering calculate_skb_padding with skb=%px\n", skb);
+	wg_dbg("Entering calculate_skb_padding with skb=%p\n", skb);
 	unsigned int padded_size, last_unit = skb->len;
 
 	if (unlikely(!PACKET_CB(skb)->mtu)) {
@@ -252,10 +252,9 @@ static bool encrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
     struct sk_buff *trailer;
     int num_frags;
 
-    wg_dbg("Entering encrypt_packet with skb=%px, keypair=%px\n", skb, keypair);
-    wg_dbg("skb->len = %u, skb->data_len = %u, skb->network_header = %px\n", skb->len, skb->data_len, skb_network_header(skb));
+    wg_dbg("Entering encrypt_packet with skb=%p, keypair=%p\n", skb, keypair);
+    wg_dbg("skb->len = %u, skb->data_len = %u, skb->network_header = %p\n", skb->len, skb->data_len, skb_network_header(skb));
     wg_dbg("keypair->remote_index = %u\n", keypair->remote_index);
-    wg_dbg("skb->data (before encryption): %*ph\n", skb->len, skb->data);
 #ifdef WG_TCP_VERBOSE
     decode_and_print_packet(skb, "[encrypt]");
 #endif
@@ -272,11 +271,11 @@ static bool encrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 
     /* Expand head section */
     if (unlikely(skb_cow_head(skb, DATA_PACKET_HEAD_ROOM) < 0)) {
-        wg_dbg("Failed skb_cow_head, skb->len=%u, skb->head=%px\n", skb->len, skb->head);
+        wg_dbg("Failed skb_cow_head, skb->len=%u, skb->head=%p\n", skb->len, skb->head);
         wg_dbg("Exiting encrypt_packet with false\n");
         return false;
     }
-    wg_dbg("Expanded head section, skb->len=%u, skb->head=%px\n", skb->len, skb->head);
+    wg_dbg("Expanded head section, skb->len=%u, skb->head=%p\n", skb->len, skb->head);
 
     /* Finalize checksum calculation */
     if (unlikely(skb->ip_summed == CHECKSUM_PARTIAL && skb_checksum_help(skb))) {
@@ -306,12 +305,10 @@ static bool encrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
     header->key_idx = keypair->remote_index;
     header->counter = cpu_to_le64(PACKET_CB(skb)->nonce);
     wg_dbg("Nonce for encryption: %llu\n", PACKET_CB(skb)->nonce);
-#define NOISE_KEY_LEN 32
-    wg_dbg("Encryption key: %*ph\n", NOISE_KEY_LEN, keypair->sending.key);
     pskb_put(skb, trailer, trailer_len);
     wg_dbg("Header and padding added: type=%u, key_idx=%u, counter=%llu\n",
            MESSAGE_DATA, keypair->remote_index, PACKET_CB(skb)->nonce);
-    wg_dbg("Network header set: skb_network_header=%px, skb->len=%u\n", skb_network_header(skb), skb->len);
+    wg_dbg("Network header set: skb_network_header=%p, skb->len=%u\n", skb_network_header(skb), skb->len);
 
     /* Encrypt the scattergather segments */
     sg_init_table(sg, num_frags);
@@ -354,7 +351,7 @@ static inline bool wg_ipv4_get_fraginfo(const struct sk_buff *skb,
 
 void wg_packet_send_keepalive(struct wg_peer *peer)
 {
-	wg_dbg("Entering wg_packet_send_keepalive with peer=%px\n", peer);
+	wg_dbg("Entering wg_packet_send_keepalive with peer=%p\n", peer);
 	struct sk_buff *skb;
 
 	if (skb_queue_empty_lockless(&peer->staged_packet_queue)) {
@@ -379,7 +376,7 @@ void wg_packet_send_keepalive(struct wg_peer *peer)
 
 static void wg_packet_create_data_done(struct wg_peer *peer, struct sk_buff *first)
 {
-	wg_dbg("Entering wg_packet_create_data_done with peer=%px, first=%px\n", peer, first);
+	wg_dbg("Entering wg_packet_create_data_done with peer=%p, first=%p\n", peer, first);
 	struct sk_buff *skb, *next;
 	bool is_keepalive, data_sent = false;
 
@@ -401,7 +398,7 @@ static void wg_packet_create_data_done(struct wg_peer *peer, struct sk_buff *fir
 
 void wg_packet_tx_worker(struct work_struct *work)
 {
-	wg_dbg("Entering wg_packet_tx_worker with work=%px\n", work);
+	wg_dbg("Entering wg_packet_tx_worker with work=%p\n", work);
 	struct wg_peer *peer = container_of(work, struct wg_peer, transmit_packet_work);
 	struct noise_keypair *keypair;
 	enum packet_state state;
@@ -428,7 +425,7 @@ void wg_packet_tx_worker(struct work_struct *work)
 
 void wg_packet_encrypt_worker(struct work_struct *work)
 {
-	wg_dbg("Entering wg_packet_encrypt_worker with work=%px\n", work);
+	wg_dbg("Entering wg_packet_encrypt_worker with work=%p\n", work);
 	struct crypt_queue *queue = container_of(work, struct multicore_worker,
 						 work)->ptr;
 	struct sk_buff *first, *skb, *next;
@@ -454,15 +451,13 @@ void wg_packet_encrypt_worker(struct work_struct *work)
 
 static void wg_packet_create_data(struct wg_peer *peer, struct sk_buff *first)
 {
-	wg_dbg("Entering wg_packet_create_data with peer=%px, first=%px\n", peer, first);
+	wg_dbg("Entering wg_packet_create_data with peer=%p, first=%p\n", peer, first);
 	struct wg_device *wg = peer->device;
 	int ret = -EINVAL;
 
 	rcu_read_lock_bh();
 	if (unlikely(READ_ONCE(peer->is_dead)))
 		goto err;
-
-	wg_dbg("wg_packet_create_data sending: %*ph\n", first->len, first->data);
 
 	ret = wg_queue_enqueue_per_device_and_peer(&wg->encrypt_queue, &peer->tx_queue, first,
 						   wg->packet_crypt_wq);
@@ -483,7 +478,7 @@ err:
 
 void wg_packet_purge_staged_packets(struct wg_peer *peer)
 {
-	wg_dbg("Entering wg_packet_purge_staged_packets with peer=%px\n", peer);
+	wg_dbg("Entering wg_packet_purge_staged_packets with peer=%p\n", peer);
 	spin_lock_bh(&peer->staged_packet_queue.lock);
 	DEV_STATS_ADD(peer->device->dev, tx_dropped,
 		      peer->staged_packet_queue.qlen);
@@ -494,7 +489,7 @@ void wg_packet_purge_staged_packets(struct wg_peer *peer)
 
 void wg_packet_send_staged_packets(struct wg_peer *peer)
 {
-	wg_dbg("Entering wg_packet_send_staged_packets with peer=%px\n", peer);
+	wg_dbg("Entering wg_packet_send_staged_packets with peer=%p\n", peer);
 	struct noise_keypair *keypair;
 	struct sk_buff_head packets;
 	struct sk_buff *skb;

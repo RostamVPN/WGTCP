@@ -843,7 +843,7 @@ static void wg_print_peer_attr(const struct nlattr *attr)
         wg_dbg("WGPEER_A_PUBLIC_KEY: %*phN\n", nla_len(attr), nla_data(attr));
         break;
     case WGPEER_A_PRESHARED_KEY:
-        wg_dbg("WGPEER_A_PRESHARED_KEY: %*phN\n", nla_len(attr), nla_data(attr));
+        wg_dbg("WGPEER_A_PRESHARED_KEY: %d bytes\n", nla_len(attr));
         break;
     case WGPEER_A_FLAGS:
         wg_dbg("WGPEER_A_FLAGS: %u\n", nla_get_u32(attr));
@@ -900,7 +900,7 @@ static void wg_print_device_attr(const struct nlattr *attr)
         wg_dbg("WGDEVICE_A_IFNAME: %s\n", nla_data(attr));
         break;
     case WGDEVICE_A_PRIVATE_KEY:
-        wg_dbg("WGDEVICE_A_PRIVATE_KEY: %*phN\n", nla_len(attr), nla_data(attr));
+        wg_dbg("WGDEVICE_A_PRIVATE_KEY: %d bytes\n", nla_len(attr));
         break;
     case WGDEVICE_A_PUBLIC_KEY:
         wg_dbg("WGDEVICE_A_PUBLIC_KEY: %*phN\n", nla_len(attr), nla_data(attr));
@@ -965,9 +965,6 @@ static void wg_print_netlink_message_verbose(const struct nlmsghdr *nlh)
             break;
         }
     }
-
-    wg_dbg("Hex Dump of Netlink Message:\n");
-    wg_dbg("%*phN\n", nlh->nlmsg_len, nlh);
 }
 
 /* Add a function to print the entire buffer of netlink messages */
@@ -988,7 +985,7 @@ static struct wg_device *lookup_interface(struct nlattr **attrs, struct sk_buff 
 {
 	struct net_device *dev = NULL;
 
-	wg_dbg("Entering lookup_interface: attrs = %px, skb = %px\n", attrs, skb);
+	wg_dbg("Entering lookup_interface: attrs = %p, skb = %p\n", attrs, skb);
 
 	if (!attrs[WGDEVICE_A_IFINDEX] == !attrs[WGDEVICE_A_IFNAME])
 		return ERR_PTR(-EBADR);
@@ -1013,7 +1010,7 @@ static int get_allowedips(struct sk_buff *skb, const u8 *ip, u8 cidr, int family
 {
 	struct nlattr *allowedip_nest;
 
-	wg_dbg("Entering get_allowedips: skb = %px, ip = %px, cidr = %u, family = %d\n", skb, ip, cidr, family);
+	wg_dbg("Entering get_allowedips: skb = %p, ip = %p, cidr = %u, family = %d\n", skb, ip, cidr, family);
 
 	allowedip_nest = nla_nest_start(skb, 0);
 	if (!allowedip_nest)
@@ -1048,7 +1045,7 @@ static int get_peer(struct wg_peer *peer, struct sk_buff *skb, struct dump_ctx *
 	struct allowedips_node *allowedips_node = ctx->next_allowedip;
 	bool fail;
 
-	wg_dbg("Entering get_peer: peer = %px, skb = %px, ctx = %px\n", peer, skb, ctx);
+	wg_dbg("Entering get_peer: peer = %p, skb = %p, ctx = %p\n", peer, skb, ctx);
 
 	if (!peer_nest)
 		return -EMSGSIZE;
@@ -1144,7 +1141,7 @@ static int wg_get_device_start(struct netlink_callback *cb)
 {
 	struct wg_device *wg;
 
-	wg_dbg("Entering wg_get_device_start: cb = %px\n", cb);
+	wg_dbg("Entering wg_get_device_start: cb = %p\n", cb);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,6,0)
 	wg = lookup_interface(genl_info_dump(cb)->attrs, cb->skb);
@@ -1170,7 +1167,7 @@ static int wg_get_device_dump(struct sk_buff *skb, struct netlink_callback *cb)
 	bool done = true;
 	void *hdr;
 
-	wg_dbg("Entering wg_get_device_dump: skb = %px, cb = %px\n", skb, cb);
+	wg_dbg("Entering wg_get_device_dump: skb = %p, cb = %p\n", skb, cb);
 
 	rtnl_lock();
 	mutex_lock(&wg->device_update_lock);
@@ -1262,7 +1259,7 @@ static int wg_get_device_done(struct netlink_callback *cb)
 {
 	struct dump_ctx *ctx = DUMP_CTX(cb);
 
-	wg_dbg("Entering wg_get_device_done: cb = %px\n", cb);
+	wg_dbg("Entering wg_get_device_done: cb = %p\n", cb);
 
 	if (ctx->wg)
 		dev_put(ctx->wg->dev);
@@ -1277,7 +1274,7 @@ static int set_port(struct wg_device *wg, u16 port)
 {
 	struct wg_peer *peer;
 
-	wg_dbg("Entering set_port: wg = %px, port = %u\n", wg, port);
+	wg_dbg("Entering set_port: wg = %p, port = %u\n", wg, port);
 
 	if (wg->incoming_port == port)
 		return 0;
@@ -1303,7 +1300,7 @@ static int set_allowedip(struct wg_peer *peer, struct nlattr **attrs)
 	u16 family;
 	u8 cidr;
 
-	wg_dbg("Entering set_allowedip: peer = %px, attrs = %px\n", peer, attrs);
+	wg_dbg("Entering set_allowedip: peer = %p, attrs = %p\n", peer, attrs);
 
 	if (!attrs[WGALLOWEDIP_A_FAMILY] || !attrs[WGALLOWEDIP_A_IPADDR] ||
 	    !attrs[WGALLOWEDIP_A_CIDR_MASK])
@@ -1345,7 +1342,7 @@ static int set_peer(struct wg_device *wg, struct nlattr **attrs)
 	u32 flags = 0;
 	int ret;
 
-	wg_dbg("Entering set_peer: wg = %px, attrs = %px\n", wg, attrs);
+	wg_dbg("Entering set_peer: wg = %p, attrs = %p\n", wg, attrs);
 
 	ret = -EINVAL;
 	if (attrs[WGPEER_A_PUBLIC_KEY] &&
@@ -1472,7 +1469,7 @@ static int wg_set_device(struct sk_buff *skb, struct genl_info *info)
 	u32 flags = 0;
 	int ret;
 
-	wg_dbg("Entering wg_set_device: skb = %px, info = %px\n", skb, info);
+	wg_dbg("Entering wg_set_device: skb = %p, info = %p\n", skb, info);
 
 #ifdef DIAGNOSTC
 	/* Decode and print the netlink message received */

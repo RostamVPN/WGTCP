@@ -27,7 +27,7 @@ struct wg_peer *wg_peer_create(struct wg_device *wg,
 			       const u8 public_key[NOISE_PUBLIC_KEY_LEN],
 			       const u8 preshared_key[NOISE_SYMMETRIC_KEY_LEN])
 {
-	wg_dbg("wg_peer_create: entry with wg=%px, public_key=%px, preshared_key=%px\n", wg, public_key, preshared_key);
+	wg_dbg("wg_peer_create: entry with wg=%p, public_key=%p, preshared_key=%p\n", wg, public_key, preshared_key);
 	struct wg_peer *peer;
 	int ret = -ENOMEM;
 
@@ -151,7 +151,7 @@ struct wg_peer *wg_peer_create(struct wg_device *wg,
 
 	++wg->num_peers;
 	pr_debug("%s: Peer %llu created\n", wg->dev->name, peer->internal_id);
-	wg_dbg("wg_peer_create: exit with peer=%px\n", peer);
+	wg_dbg("wg_peer_create: exit with peer=%p\n", peer);
 	return peer;
 
 err_destroy_tcp_read_wq:
@@ -166,20 +166,20 @@ err_free_peer:
 
 struct wg_peer *wg_peer_get_maybe_zero(struct wg_peer *peer)
 {
-	wg_dbg("wg_peer_get_maybe_zero: entry with peer=%px\n", peer);
+	wg_dbg("wg_peer_get_maybe_zero: entry with peer=%p\n", peer);
 	RCU_LOCKDEP_WARN(!rcu_read_lock_bh_held(),
 			 "Taking peer reference without holding the RCU read lock");
 	if (unlikely(!peer || !kref_get_unless_zero(&peer->refcount))) {
 		wg_dbg("wg_peer_get_maybe_zero: exit with NULL\n");
 		return NULL;
 	}
-	wg_dbg("wg_peer_get_maybe_zero: exit with peer=%px\n", peer);
+	wg_dbg("wg_peer_get_maybe_zero: exit with peer=%p\n", peer);
 	return peer;
 }
 
 static void peer_make_dead(struct wg_peer *peer)
 {
-	wg_dbg("peer_make_dead: entry with peer=%px\n", peer);
+	wg_dbg("peer_make_dead: entry with peer=%p\n", peer);
 	if(!peer || IS_ERR(peer)){
 		wg_dbg("Exiting function peer_remove_after_dead, no peer.\n");
 		return;
@@ -244,7 +244,7 @@ static void peer_make_dead(struct wg_peer *peer)
 
 static void peer_remove_after_dead(struct wg_peer *peer)
 {
-	wg_dbg("peer_remove_after_dead: entry with peer=%px\n", peer);
+	wg_dbg("peer_remove_after_dead: entry with peer=%p\n", peer);
 	WARN_ON(!peer->is_dead);
 
 	/* No more keypairs can be created for this peer, since is_dead protects
@@ -308,7 +308,7 @@ static void peer_remove_after_dead(struct wg_peer *peer)
  */
 void wg_peer_remove(struct wg_peer *peer)
 {
-	wg_dbg("wg_peer_remove: entry with peer=%px\n", peer);
+	wg_dbg("wg_peer_remove: entry with peer=%p\n", peer);
 	if (unlikely(!peer)) {
 		wg_dbg("wg_peer_remove: exit (peer is NULL)\n");
 		return;
@@ -326,7 +326,7 @@ void wg_peer_remove(struct wg_peer *peer)
 
 void wg_peer_remove_all(struct wg_device *wg)
 {
-	wg_dbg("wg_peer_remove_all: entry with wg=%px\n", wg);
+	wg_dbg("wg_peer_remove_all: entry with wg=%p\n", wg);
 	struct wg_peer *peer, *temp;
 	LIST_HEAD(dead_peers);
 
@@ -353,7 +353,7 @@ void wg_peer_remove_all(struct wg_device *wg)
 
 static void rcu_release(struct rcu_head *rcu)
 {
-	wg_dbg("rcu_release: entry with rcu=%px\n", rcu);
+	wg_dbg("rcu_release: entry with rcu=%p\n", rcu);
 	struct wg_peer *peer = container_of(rcu, struct wg_peer, rcu);
 
 	dst_cache_destroy(&peer->endpoint_cache);
@@ -369,7 +369,7 @@ static void rcu_release(struct rcu_head *rcu)
 
 static void kref_release(struct kref *refcount)
 {
-	wg_dbg("kref_release: entry with refcount=%px\n", refcount);
+	wg_dbg("kref_release: entry with refcount=%p\n", refcount);
 	struct wg_peer *peer = container_of(refcount, struct wg_peer, refcount);
 
 	pr_debug("%s: Peer %llu (%pISpfsc) destroyed\n",
@@ -394,7 +394,7 @@ static void kref_release(struct kref *refcount)
 
 void wg_peer_put(struct wg_peer *peer)
 {
-	wg_dbg("wg_peer_put: entry with peer=%px\n", peer);
+	wg_dbg("wg_peer_put: entry with peer=%p\n", peer);
 	if (unlikely(!peer)) {
 		wg_dbg("wg_peer_put: exit (peer is NULL)\n");
 		return;

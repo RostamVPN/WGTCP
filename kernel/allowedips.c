@@ -13,7 +13,7 @@ static struct kmem_cache *node_cache;
 
 static void swap_endian(u8 *dst, const u8 *src, u8 bits)
 {
-	wg_dbg("Entering swap_endian(dst=%px, src=%px, bits=%u)\n", dst, src, bits);
+	wg_dbg("Entering swap_endian(dst=%p, src=%p, bits=%u)\n", dst, src, bits);
 	if (bits == 32) {
 		*(u32 *)dst = be32_to_cpu(*(const __be32 *)src);
 	} else if (bits == 128) {
@@ -26,7 +26,7 @@ static void swap_endian(u8 *dst, const u8 *src, u8 bits)
 static void copy_and_assign_cidr(struct allowedips_node *node, const u8 *src,
 				 u8 cidr, u8 bits)
 {
-	wg_dbg("Entering copy_and_assign_cidr(node=%px, src=%px, cidr=%u, bits=%u)\n", node, src, cidr, bits);
+	wg_dbg("Entering copy_and_assign_cidr(node=%p, src=%p, cidr=%u, bits=%u)\n", node, src, cidr, bits);
 	node->cidr = cidr;
 	node->bit_at_a = cidr / 8U;
 #ifdef __LITTLE_ENDIAN
@@ -40,7 +40,7 @@ static void copy_and_assign_cidr(struct allowedips_node *node, const u8 *src,
 
 static inline u8 choose(struct allowedips_node *node, const u8 *key)
 {
-	wg_dbg("Entering choose(node=%px, key=%px)\n", node, key);
+	wg_dbg("Entering choose(node=%p, key=%p)\n", node, key);
 	u8 result = (key[node->bit_at_a] >> node->bit_at_b) & 1;
 	wg_dbg("Exiting choose with result=%u\n", result);
 	return result;
@@ -49,7 +49,7 @@ static inline u8 choose(struct allowedips_node *node, const u8 *key)
 static void push_rcu(struct allowedips_node **stack,
 		     struct allowedips_node __rcu *p, unsigned int *len)
 {
-	wg_dbg("Entering push_rcu(stack=%px, p=%px, len=%u)\n", stack, p, *len);
+	wg_dbg("Entering push_rcu(stack=%p, p=%p, len=%u)\n", stack, p, *len);
 	if (rcu_access_pointer(p)) {
 		if (WARN_ON(IS_ENABLED(DEBUG) && *len >= MAX_ALLOWEDIPS_DEPTH))
 			return;
@@ -60,14 +60,14 @@ static void push_rcu(struct allowedips_node **stack,
 
 static void node_free_rcu(struct rcu_head *rcu)
 {
-	wg_dbg("Entering node_free_rcu(rcu=%px)\n", rcu);
+	wg_dbg("Entering node_free_rcu(rcu=%p)\n", rcu);
 	kmem_cache_free(node_cache, container_of(rcu, struct allowedips_node, rcu));
 	wg_dbg("Exiting node_free_rcu\n");
 }
 
 static void root_free_rcu(struct rcu_head *rcu)
 {
-	wg_dbg("Entering root_free_rcu(rcu=%px)\n", rcu);
+	wg_dbg("Entering root_free_rcu(rcu=%p)\n", rcu);
 	struct allowedips_node *node, *stack[MAX_ALLOWEDIPS_DEPTH] = {
 		container_of(rcu, struct allowedips_node, rcu) };
 	unsigned int len = 1;
@@ -82,7 +82,7 @@ static void root_free_rcu(struct rcu_head *rcu)
 
 static void root_remove_peer_lists(struct allowedips_node *root)
 {
-	wg_dbg("Entering root_remove_peer_lists(root=%px)\n", root);
+	wg_dbg("Entering root_remove_peer_lists(root=%p)\n", root);
 	struct allowedips_node *node, *stack[MAX_ALLOWEDIPS_DEPTH] = { root };
 	unsigned int len = 1;
 
@@ -106,7 +106,7 @@ static unsigned int fls128(u64 a, u64 b)
 static u8 common_bits(const struct allowedips_node *node, const u8 *key,
 		      u8 bits)
 {
-	wg_dbg("Entering common_bits(node=%px, key=%px, bits=%u)\n", node, key, bits);
+	wg_dbg("Entering common_bits(node=%p, key=%p, bits=%u)\n", node, key, bits);
 	u8 result;
 	if (bits == 32)
 		result = 32U - fls(*(const u32 *)node->bits ^ *(const u32 *)key);
@@ -123,7 +123,7 @@ static u8 common_bits(const struct allowedips_node *node, const u8 *key,
 static bool prefix_matches(const struct allowedips_node *node, const u8 *key,
 			   u8 bits)
 {
-	wg_dbg("Entering prefix_matches(node=%px, key=%p, bits=%u)\n", node, key, bits);
+	wg_dbg("Entering prefix_matches(node=%p, key=%p, bits=%u)\n", node, key, bits);
 	/* This could be much faster if it actually just compared the common
 	 * bits properly, by precomputing a mask bswap(~0 << (32 - cidr)), and
 	 * the rest, but it turns out that common_bits is already super fast on
@@ -138,7 +138,7 @@ static bool prefix_matches(const struct allowedips_node *node, const u8 *key,
 static struct allowedips_node *find_node(struct allowedips_node *trie, u8 bits,
 					 const u8 *key)
 {
-	wg_dbg("Entering find_node(trie=%px, bits=%u, key=%px)\n", trie, bits, key);
+	wg_dbg("Entering find_node(trie=%p, bits=%u, key=%p)\n", trie, bits, key);
 	struct allowedips_node *node = trie, *found = NULL;
 
 	while (node && prefix_matches(node, key, bits)) {
@@ -148,7 +148,7 @@ static struct allowedips_node *find_node(struct allowedips_node *trie, u8 bits,
 			break;
 		node = rcu_dereference_bh(node->bit[choose(node, key)]);
 	}
-	wg_dbg("Exiting find_node with found=%px\n", found);
+	wg_dbg("Exiting find_node with found=%p\n", found);
 	return found;
 }
 
@@ -157,7 +157,7 @@ static struct allowedips_node *find_node(struct allowedips_node *trie, u8 bits,
 static struct wg_peer *lookup(struct allowedips_node __rcu *root, u8 bits,
 			      const void *be_ip)
 {
-	wg_dbg("Entering lookup(root=%px, bits=%u, be_ip=%px)\n", root, bits, be_ip);
+	wg_dbg("Entering lookup(root=%p, bits=%u, be_ip=%p)\n", root, bits, be_ip);
 	/* Aligned so it can be passed to fls/fls64 */
 	u8 ip[16] __aligned(__alignof(u64));
 	struct allowedips_node *node;
@@ -174,7 +174,7 @@ retry:
 			goto retry;
 	}
 	rcu_read_unlock_bh();
-	wg_dbg("Exiting lookup with peer=%px\n", peer);
+	wg_dbg("Exiting lookup with peer=%p\n", peer);
 	return peer;
 }
 
@@ -183,7 +183,7 @@ static bool node_placement(struct allowedips_node __rcu *trie, const u8 *key,
 			   u8 cidr, u8 bits, struct allowedips_node **rnode,
 			   struct mutex *lock)
 {
-	wg_dbg("Entering node_placement(trie=%px, key=%px, cidr=%u, bits=%u, rnode=%px, lock=%px)\n", trie, key, cidr, bits, rnode, lock);
+	wg_dbg("Entering node_placement(trie=%p, key=%p, cidr=%u, bits=%u, rnode=%p, lock=%p)\n", trie, key, cidr, bits, rnode, lock);
 	struct allowedips_node *node = rcu_dereference_protected(trie, lockdep_is_held(lock));
 	struct allowedips_node *parent = NULL;
 	bool exact = false;
@@ -203,7 +203,7 @@ static bool node_placement(struct allowedips_node __rcu *trie, const u8 *key,
 
 static inline void connect_node(struct allowedips_node __rcu **parent, u8 bit, struct allowedips_node *node)
 {
-	wg_dbg("Entering connect_node(parent=%px, bit=%u, node=%px)\n", parent, bit, node);
+	wg_dbg("Entering connect_node(parent=%p, bit=%u, node=%p)\n", parent, bit, node);
 	node->parent_bit_packed = (unsigned long)parent | bit;
 	rcu_assign_pointer(*parent, node);
 	wg_dbg("Exiting connect_node\n");
@@ -211,7 +211,7 @@ static inline void connect_node(struct allowedips_node __rcu **parent, u8 bit, s
 
 static inline void choose_and_connect_node(struct allowedips_node *parent, struct allowedips_node *node)
 {
-	wg_dbg("Entering choose_and_connect_node(parent=%px, node=%px)\n", parent, node);
+	wg_dbg("Entering choose_and_connect_node(parent=%p, node=%p)\n", parent, node);
 	u8 bit = choose(parent, node->bits);
 	connect_node(&parent->bit[bit], bit, node);
 	wg_dbg("Exiting choose_and_connect_node\n");
@@ -220,7 +220,7 @@ static inline void choose_and_connect_node(struct allowedips_node *parent, struc
 static int add(struct allowedips_node __rcu **trie, u8 bits, const u8 *key,
 	       u8 cidr, struct wg_peer *peer, struct mutex *lock)
 {
-	wg_dbg("Entering add(trie=%px, bits=%u, key=%px, cidr=%u, peer=%px, lock=%px)\n", trie, bits, key, cidr, peer, lock);
+	wg_dbg("Entering add(trie=%p, bits=%u, key=%p, cidr=%u, peer=%p, lock=%p)\n", trie, bits, key, cidr, peer, lock);
 	struct allowedips_node *node, *parent, *down, *newnode;
 
 	if (unlikely(cidr > bits || !peer))
@@ -347,7 +347,7 @@ static int remove(struct allowedips_node __rcu **trie, u8 bits, const u8 *key,
 
 void wg_allowedips_init(struct allowedips *table)
 {
-	wg_dbg("Entering wg_allowedips_init(table=%px)\n", table);
+	wg_dbg("Entering wg_allowedips_init(table=%p)\n", table);
 	table->root4 = table->root6 = NULL;
 	table->seq = 1;
 	wg_dbg("Exiting wg_allowedips_init\n");
@@ -355,7 +355,7 @@ void wg_allowedips_init(struct allowedips *table)
 
 void wg_allowedips_free(struct allowedips *table, struct mutex *lock)
 {
-	wg_dbg("Entering wg_allowedips_free(table=%px, lock=%px)\n", table, lock);
+	wg_dbg("Entering wg_allowedips_free(table=%p, lock=%p)\n", table, lock);
 	struct allowedips_node __rcu *old4 = table->root4, *old6 = table->root6;
 
 	++table->seq;
@@ -381,7 +381,7 @@ void wg_allowedips_free(struct allowedips *table, struct mutex *lock)
 int wg_allowedips_insert_v4(struct allowedips *table, const struct in_addr *ip,
 			    u8 cidr, struct wg_peer *peer, struct mutex *lock)
 {
-	wg_dbg("Entering wg_allowedips_insert_v4(table=%px, ip=%px, cidr=%u, peer=%px, lock=%px)\n", table, ip, cidr, peer, lock);
+	wg_dbg("Entering wg_allowedips_insert_v4(table=%p, ip=%p, cidr=%u, peer=%p, lock=%p)\n", table, ip, cidr, peer, lock);
 	/* Aligned so it can be passed to fls */
 	u8 key[4] __aligned(__alignof(u32));
 
@@ -395,7 +395,7 @@ int wg_allowedips_insert_v4(struct allowedips *table, const struct in_addr *ip,
 int wg_allowedips_insert_v6(struct allowedips *table, const struct in6_addr *ip,
 			    u8 cidr, struct wg_peer *peer, struct mutex *lock)
 {
-	wg_dbg("Entering wg_allowedips_insert_v6(table=%px, ip=%px, cidr=%u, peer=%px, lock=%px)\n", table, ip, cidr, peer, lock);
+	wg_dbg("Entering wg_allowedips_insert_v6(table=%p, ip=%p, cidr=%u, peer=%p, lock=%p)\n", table, ip, cidr, peer, lock);
 	/* Aligned so it can be passed to fls64 */
 	u8 key[16] __aligned(__alignof(u64));
 
@@ -429,7 +429,7 @@ int wg_allowedips_remove_v6(struct allowedips *table, const struct in6_addr *ip,
 void wg_allowedips_remove_by_peer(struct allowedips *table,
 				  struct wg_peer *peer, struct mutex *lock)
 {
-	wg_dbg("Entering wg_allowedips_remove_by_peer(table=%px, peer=%px, lock=%px)\n", table, peer, lock);
+	wg_dbg("Entering wg_allowedips_remove_by_peer(table=%p, peer=%p, lock=%p)\n", table, peer, lock);
 	struct allowedips_node *node, *tmp;
 
 	if (list_empty(&peer->allowedips_list))
@@ -442,7 +442,7 @@ void wg_allowedips_remove_by_peer(struct allowedips *table,
 
 int wg_allowedips_read_node(struct allowedips_node *node, u8 ip[16], u8 *cidr)
 {
-	wg_dbg("Entering wg_allowedips_read_node(node=%px, ip=%px, cidr=%px)\n", node, ip, cidr);
+	wg_dbg("Entering wg_allowedips_read_node(node=%p, ip=%p, cidr=%p)\n", node, ip, cidr);
 	const unsigned int cidr_bytes = DIV_ROUND_UP(node->cidr, 8U);
 	swap_endian(ip, node->bits, node->bitlen);
 	memset(ip + cidr_bytes, 0, node->bitlen / 8U - cidr_bytes);
@@ -459,7 +459,7 @@ int wg_allowedips_read_node(struct allowedips_node *node, u8 ip[16], u8 *cidr)
 struct wg_peer *wg_allowedips_lookup_dst(struct allowedips *table,
 					 struct sk_buff *skb)
 {
-	wg_dbg("Entering wg_allowedips_lookup_dst(table=%px, skb=%px)\n", table, skb);
+	wg_dbg("Entering wg_allowedips_lookup_dst(table=%p, skb=%p)\n", table, skb);
 	struct wg_peer *result;
 	if (skb->protocol == htons(ETH_P_IP))
 		result = lookup(table->root4, 32, &ip_hdr(skb)->daddr);
@@ -467,7 +467,7 @@ struct wg_peer *wg_allowedips_lookup_dst(struct allowedips *table,
 		result = lookup(table->root6, 128, &ipv6_hdr(skb)->daddr);
 	else
 		result = NULL;
-	wg_dbg("Exiting wg_allowedips_lookup_dst with result=%px\n", result);
+	wg_dbg("Exiting wg_allowedips_lookup_dst with result=%p\n", result);
 	return result;
 }
 
@@ -475,7 +475,7 @@ struct wg_peer *wg_allowedips_lookup_dst(struct allowedips *table,
 struct wg_peer *wg_allowedips_lookup_src(struct allowedips *table,
 					 struct sk_buff *skb)
 {
-	wg_dbg("Entering wg_allowedips_lookup_src(table=%px, skb=%px)\n", table, skb);
+	wg_dbg("Entering wg_allowedips_lookup_src(table=%p, skb=%p)\n", table, skb);
 	struct wg_peer *result;
 	if (skb->protocol == htons(ETH_P_IP))
 		result = lookup(table->root4, 32, &ip_hdr(skb)->saddr);
@@ -483,7 +483,7 @@ struct wg_peer *wg_allowedips_lookup_src(struct allowedips *table,
 		result = lookup(table->root6, 128, &ipv6_hdr(skb)->saddr);
 	else
 		result = NULL;
-	wg_dbg("Exiting wg_allowedips_lookup_src with result=%px\n", result);
+	wg_dbg("Exiting wg_allowedips_lookup_src with result=%p\n", result);
 	return result;
 }
 

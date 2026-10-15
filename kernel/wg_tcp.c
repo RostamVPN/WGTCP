@@ -538,7 +538,7 @@ static void wg_socket_set_peer_endpoint_internal(struct wg_peer *peer,
 {
 	bool tcp_target_changed = false;
 
-	wg_dbg("Entering function wg_socket_set_peer_endpoint peer=%px\n", peer);
+	wg_dbg("Entering function wg_socket_set_peer_endpoint peer=%p\n", peer);
 	if (unlikely(!peer) || unlikely(IS_ERR(peer))){
 		goto out;
 	}
@@ -705,7 +705,7 @@ void wg_socket_set_peer_endpoint_authenticated_from_skb(
 void wg_socket_set_peer_endpoint_from_skb(struct wg_peer *peer,
 					  const struct sk_buff *skb)
 {
-	wg_dbg("Entering function wg_socket_set_peer_endpoint_from_skb peer=%px\n", peer);
+	wg_dbg("Entering function wg_socket_set_peer_endpoint_from_skb peer=%p\n", peer);
 	struct endpoint endpoint;
 
 	if (unlikely(!peer) || unlikely(IS_ERR(peer))){
@@ -1110,7 +1110,7 @@ static int wg_release_peer_socket_locked(struct wg_peer *peer,
 
 void wg_clean_peer_socket(struct wg_peer *peer, bool release, bool destroy, bool inbound)
 {
-	wg_dbg("Entering function wg_clean_peer_socket peer=%px, inbound=%d\n", peer, inbound);
+	wg_dbg("Entering function wg_clean_peer_socket peer=%p, inbound=%d\n", peer, inbound);
 	if (!peer || IS_ERR(peer)) {
 		wg_dbg("wg_clean_peer_socket: No peer or invalid peer.\n");
 		goto out;
@@ -1370,7 +1370,7 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 			pr_err("new_peer_connection is NULL after kernel_accept\n");
 			continue;
 		}
-		wg_dbg("wg_tcp_listener_worker accepted socket: %px new_peer_connection: %px\n", tcp_socket, &new_peer_connection);
+		wg_dbg("wg_tcp_listener_worker accepted socket: %p new_peer_connection: %p\n", tcp_socket, &new_peer_connection);
 		WRITE_ONCE(new_peer_connection->sk->sk_mark, wg->fwmark);
 
 		/* FIX #4: Disable Nagle's algorithm on accepted socket to avoid
@@ -1451,7 +1451,7 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 			 */
 
 			new_temp_peer = wg_temp_peer_create(wg);
-			wg_dbg("wg_tcp_listener_worker created temp peer for inbound new connection temp_peer=%px\n", new_temp_peer);
+			wg_dbg("wg_tcp_listener_worker created temp peer for inbound new connection temp_peer=%p\n", new_temp_peer);
 			if (!IS_ERR(new_temp_peer) && new_temp_peer) {
 				mutex_lock(&new_temp_peer->tcp_socket_lock);
 				new_temp_peer->peer_socket = new_peer_connection;
@@ -2005,7 +2005,7 @@ int wg_tcp_connect(struct wg_peer *peer)
 	if (!peer || IS_ERR(peer) || !peer->device)
 		return -EINVAL;
 
-	wg_dbg("Entering function wg_tcp_connect peer=%px\n", peer);
+	wg_dbg("Entering function wg_tcp_connect peer=%p\n", peer);
 	print_peer_socket_info(peer);
 
 	if (peer->device->transport != WG_TRANSPORT_TCP) {
@@ -2132,7 +2132,7 @@ int wg_tcp_connect(struct wg_peer *peer)
 	spin_unlock_bh(&peer->tcp_lock);
 
 	/* Print diagnostic information about the created socket */
-	wg_dbg("Socket created, sk=%px, family=%d, state=%d\n",
+	wg_dbg("Socket created, sk=%p, family=%d, state=%d\n",
 	       socket->sk, socket->sk->sk_family, socket->sk->sk_state);
 
 	/* Set up the socket callbacks before initiating the connect */
@@ -2375,7 +2375,7 @@ void wg_tcp_state_change(struct sock *sk)
 	wg_tcp_diag_dump_sock(sk, "state_change", 0, 0);
 #endif
 	wg_dbg("wg_tcp_state_change: Socket state=%d, Socket error=%d\n", sk->sk_state, sk->sk_err);
-	wg_dbg("wg_tcp_state_change: Peer=%px, Device=%px\n", peer, socket_data->device);
+	wg_dbg("wg_tcp_state_change: Peer=%p, Device=%p\n", peer, socket_data->device);
 
 	/* Additional diagnostic information for peer-specific data */
 	wg_dbg("wg_tcp_state_change: Peer TCP established=%d, TCP pending=%d\n",
@@ -2384,7 +2384,7 @@ void wg_tcp_state_change(struct sock *sk)
 
 
 	/* Log detailed state information */
-	wg_dbg("wg_tcp_state_change: sk=%px, sk_state=%d, sk_err=%d, sk_shutdown=%d, sk_send_head=%px\n",
+	wg_dbg("wg_tcp_state_change: sk=%p, sk_state=%d, sk_err=%d, sk_shutdown=%d, sk_send_head=%p\n",
 		sk, sk->sk_state, sk->sk_err, sk->sk_shutdown, sk->sk_send_head);
 	/* Log TCP specific state information if available */
 	const char *tcp_state_name;
@@ -3066,7 +3066,7 @@ static int wg_tcp_build_fake_headers(struct sk_buff *skb, struct wg_peer *peer,
 
 	/* Diagnostic: Print SKB state on entry */
 	wg_dbg("Entering wg_tcp_build_fake_headers. SKB state on entry: "
-	       "skb=%px, len=%d, head=%px, data=%px, tail=%u, end=%u, headroom=%d, tailroom=%d\n",
+	       "skb=%p, len=%d, head=%p, data=%p, tail=%u, end=%u, headroom=%d, tailroom=%d\n",
 	       skb, skb->len, skb->head, skb->data, skb->tail, skb->end, skb_headroom(skb), skb_tailroom(skb));
 
 	log_wireguard_endpoint(&peer->endpoint);
@@ -3137,7 +3137,7 @@ static int wg_tcp_build_fake_headers(struct sk_buff *skb, struct wg_peer *peer,
 	}
 
 	/* Diagnostic: Print SKB state after linearization */
-	wg_dbg("After skb_linearize: skb=%px, len=%d, head=%px, data=%px, tail=%u, end=%u, skb->len=%d, headroom=%d, tailroom=%d\n",
+	wg_dbg("After skb_linearize: skb=%p, len=%d, head=%p, data=%p, tail=%u, end=%u, skb->len=%d, headroom=%d, tailroom=%d\n",
 	       skb, skb->len, skb->head, skb->data, skb->tail, skb->end, skb->len, skb_headroom(skb), skb_tailroom(skb));
 
 	/* Calculate the payload length: initial length of skb before any header is added */
@@ -3148,20 +3148,20 @@ static int wg_tcp_build_fake_headers(struct sk_buff *skb, struct wg_peer *peer,
 	skb_reset_transport_header(skb);
 
 	/* Diagnostic: Print UDP header location */
-	wg_dbg("UDP header location: %px, length: %zu\n",
+	wg_dbg("UDP header location: %p, length: %zu\n",
 	       skb_transport_header(skb), sizeof(struct udphdr));
 
 	/* Push and reset for IP header */
 	if (source) {
 		skb_push(skb, sizeof(struct iphdr));
 		skb_reset_network_header(skb);
-		wg_dbg("IPv4 header location: %px, length: %zu\n",
+		wg_dbg("IPv4 header location: %p, length: %zu\n",
 		       skb_network_header(skb), sizeof(struct iphdr));
 #if IS_ENABLED(CONFIG_IPV6)
 	} else if (source6) {
 		skb_push(skb, sizeof(struct ipv6hdr));
 		skb_reset_network_header(skb);
-		wg_dbg("IPv6 header location: %px, length: %zu\n",
+		wg_dbg("IPv6 header location: %p, length: %zu\n",
 		       skb_network_header(skb), sizeof(struct ipv6hdr));
 #endif
 	} else {
@@ -3170,7 +3170,7 @@ static int wg_tcp_build_fake_headers(struct sk_buff *skb, struct wg_peer *peer,
 	}
 
 	/* Diagnostic: Print SKB state after header manipulation */
-	wg_dbg("After header manipulation: skb=%px, len=%d, head=%px, data=%px, tail=%u, end=%u, skb->len=%d, headroom=%d, tailroom=%d\n",
+	wg_dbg("After header manipulation: skb=%p, len=%d, head=%p, data=%p, tail=%u, end=%u, skb->len=%d, headroom=%d, tailroom=%d\n",
 	       skb, skb->len, skb->head, skb->data, skb->tail, skb->end, skb->len, skb_headroom(skb), skb_tailroom(skb));
 
 	/* Set UDP header fields */
@@ -3250,7 +3250,7 @@ static int wg_tcp_build_fake_headers(struct sk_buff *skb, struct wg_peer *peer,
 	}
 
 	/* Diagnostic: Print SKB state after header manipulation */
-	wg_dbg("After header pull on exit: skb=%px, len=%d, head=%px, data=%px, tail=%u, end=%u, headroom=%d, tailroom=%d\n",
+	wg_dbg("After header pull on exit: skb=%p, len=%d, head=%p, data=%p, tail=%u, end=%u, headroom=%d, tailroom=%d\n",
 	       skb, skb->len, skb->head, skb->data, skb->tail, skb->end, skb_headroom(skb), skb_tailroom(skb));
 
 	return 0;
@@ -3297,7 +3297,7 @@ void wg_tcp_read_worker(struct work_struct *work)
 	while (true) {
 		bool record_ready;
 
-		wg_dbg("wg_peer diagnostic: partial_skb=%px, expected_len=%zu, received_len=%zu\n",
+		wg_dbg("wg_peer diagnostic: partial_skb=%p, expected_len=%zu, received_len=%zu\n",
 		       peer->partial_skb, peer->expected_len, peer->received_len);
 		if (!peer->partial_skb) {
 			wg_dbg("wg_tcp_read_worker: Allocating new skb.\n");
@@ -3441,7 +3441,7 @@ void wg_tcp_read_worker(struct work_struct *work)
 				}
 			}
 			peer->expected_len = ntohl(header.length);
-			wg_dbg("wg_tcp_read_worker: sk=%px hdr: total_len=%zu type=%u flags=0x%02x checksum=0x%04x received_len=%zu\n",
+			wg_dbg("wg_tcp_read_worker: sk=%p hdr: total_len=%zu type=%u flags=0x%02x checksum=0x%04x received_len=%zu\n",
 					 sk, peer->expected_len, header.type, header.flags,
 					 ntohs(header.checksum), peer->received_len);
 #if WG_TCP_DIAG_ENABLED
@@ -3539,7 +3539,7 @@ void wg_tcp_read_worker(struct work_struct *work)
 				peer->partial_skb->len, peer->received_len,
 				peer->expected_len);
 
-			wg_dbg("Packet: %px\n", peer->partial_skb->data);
+			wg_dbg("Packet: %p\n", peer->partial_skb->data);
 			wg_dbg("partial_skb->len=%d received_len=%zu expected_len=%zu\n", peer->partial_skb->len, peer->received_len, peer->expected_len);
 			/* Check if the skb has a valid length */
 			if (unlikely(peer->partial_skb->len <= 0)) {
@@ -3573,7 +3573,7 @@ void wg_tcp_read_worker(struct work_struct *work)
 							 NET_IP_ALIGN);
 
 				/* Diagnostic: Check skb pointers and lengths after skb_reserve */
-				wg_dbg("wg_tcp_read_worker: leftover_skb after reserve: skb=%px, len=%d, headroom=%d, tailroom=%d\n",
+				wg_dbg("wg_tcp_read_worker: leftover_skb after reserve: skb=%p, len=%d, headroom=%d, tailroom=%d\n",
 						leftover_skb, leftover_skb->len, skb_headroom(leftover_skb), skb_tailroom(leftover_skb));
 
 				/*
@@ -3594,7 +3594,7 @@ void wg_tcp_read_worker(struct work_struct *work)
 				/* Now trim partial_skb after the copy is done */
 				skb_trim(peer->partial_skb, peer->expected_len);
 
-				wg_dbg("wg_tcp_read_worker: leftover_skb after copy, leftover_skb=%px, len=%d, headroom=%d, data=%px, tail=%u, end=%u\n",
+				wg_dbg("wg_tcp_read_worker: leftover_skb after copy, leftover_skb=%p, len=%d, headroom=%d, data=%p, tail=%u, end=%u\n",
 					leftover_skb, leftover_skb->len, skb_headroom(leftover_skb), leftover_skb->data, leftover_skb->tail, leftover_skb->end);
 			}
 			skb_set_tail_pointer(peer->partial_skb, peer->expected_len);
@@ -3629,11 +3629,11 @@ void wg_tcp_read_worker(struct work_struct *work)
                        }
 
 			/* Process the complete packet */
-			wg_dbg("wg_tcp_read_worker: partial_skb after trim, partial_skb=%px, len=%d, head=%px, data=%px, tail=%u, end=%u\n",
+			wg_dbg("wg_tcp_read_worker: partial_skb after trim, partial_skb=%p, len=%d, head=%p, data=%p, tail=%u, end=%u\n",
 							peer->partial_skb, peer->partial_skb->len, peer->partial_skb->head,
 							peer->partial_skb->data, peer->partial_skb->tail, peer->partial_skb->end);
 
-			wg_dbg("wg_tcp_read_worker: DELIVER sk=%px peer=%llu payload_len=%u wg_type=%u frag_id=%u frag_off=0x%x leftover_len=%zu\n",
+			wg_dbg("wg_tcp_read_worker: DELIVER sk=%p peer=%llu payload_len=%u wg_type=%u frag_id=%u frag_off=0x%x leftover_len=%zu\n",
 					 sk, peer->internal_id, peer->partial_skb->len,
 					 wg_tcp_diag_peek_msg_type(peer->partial_skb),
 					 ntohs(PACKET_CB(peer->partial_skb)->frag_id),
@@ -3739,7 +3739,7 @@ void wg_tcp_data_ready(struct sock *sk)
 #if WG_TCP_DIAG_ENABLED
 		wg_tcp_diag_dump_sock(sk, "data_ready", 0, 0);
 #endif
-		wg_dbg("wg_tcp_data_ready: schedule read worker peer=%llu sk=%px rcvq=%u\n",
+		wg_dbg("wg_tcp_data_ready: schedule read worker peer=%llu sk=%p rcvq=%u\n",
 				 peer->internal_id, sk, skb_queue_len(&sk->sk_receive_queue));
 		queue_work(peer->tcp_read_wq, &peer->tcp_read_work);
 	}
@@ -3784,7 +3784,7 @@ void wg_tcp_write_space(struct sock *sk)
 #if WG_TCP_DIAG_ENABLED
 	wg_tcp_diag_dump_sock(sk, "write_space", 0, 0);
 #endif
-	wg_dbg("wg_tcp_write_space: schedule write worker peer=%llu sk=%px writeq=%u\n",
+	wg_dbg("wg_tcp_write_space: schedule write worker peer=%llu sk=%p writeq=%u\n",
 		 peer->internal_id, sk, skb_queue_len(&sk->sk_write_queue));
 	wg_tcp_schedule_write(peer);
 unlock:
@@ -3973,7 +3973,7 @@ void wg_tcp_retry_worker(struct work_struct *work)
 	bool removal_pending;
 	int ret;
 
-	wg_dbg("Entering function wg_tcp_retry_worker peer=%px\n", peer);
+	wg_dbg("Entering function wg_tcp_retry_worker peer=%p\n", peer);
 	spin_lock_bh(&peer->tcp_lock);
 	peer->tcp_retry_scheduled = false;
 	if (READ_ONCE(peer->is_dead) || peer->tcp_stopping ||
@@ -4711,7 +4711,7 @@ struct wg_peer *wg_temp_peer_create(struct wg_device *wg)
 	struct wg_peer *peer;
 	int ret = -ENOMEM;
 
-	wg_dbg("wg_peer_create: entry with wg=%px\n", wg);
+	wg_dbg("wg_peer_create: entry with wg=%p\n", wg);
 
 	peer = kzalloc(sizeof(struct wg_peer), GFP_KERNEL);  /* BUG FIX: was kmalloc — left spinlocks, wq ptrs, flags uninitialized */
 	if (unlikely(!peer)) {
@@ -4794,7 +4794,7 @@ struct wg_peer *wg_temp_peer_create(struct wg_device *wg)
 	peer->temp_peer = true;
 
 	pr_debug("%s: Temp Peer %llu created\n", wg->dev->name, peer->internal_id);
-	wg_dbg("wg_temp_peer_create: exit with peer=%px\n", peer);
+	wg_dbg("wg_temp_peer_create: exit with peer=%p\n", peer);
 	return peer;
 
 err:

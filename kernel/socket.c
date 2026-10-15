@@ -256,7 +256,7 @@ int wg_socket_send_buffer_to_peer(struct wg_peer *peer, void *buffer,
 	int ret;
 	struct sk_buff *skb;
 
-	wg_dbg("Entering function wg_socket_send_buffer_to_peer peer=%px\n", peer);
+	wg_dbg("Entering function wg_socket_send_buffer_to_peer peer=%p\n", peer);
 
 	/* BUG FIX: null check peer BEFORE dereferencing it */
 	if (unlikely(!peer) || unlikely(IS_ERR(peer))) {

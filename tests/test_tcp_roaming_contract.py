@@ -178,6 +178,22 @@ class TcpRoamingContract(unittest.TestCase):
             self.handshake,
         )
 
+    def test_diagnostic_builds_do_not_log_keys_plaintext_or_raw_pointers(self) -> None:
+        send = source("kernel/send.c")
+        receive = source("kernel/receive.c")
+
+        for text in (send, receive):
+            self.assertNotIn("key: %*ph", text)
+            self.assertNotIn("NOISE_KEY_LEN", text)
+        self.assertNotIn("(before encryption): %*ph", send)
+        self.assertNotIn("create_data sending: %*ph", send)
+        self.assertNotIn("(after decryption succeeded): %*ph", receive)
+        self.assertNotIn("PRESHARED_KEY: %*phN", self.netlink)
+        self.assertNotIn("PRIVATE_KEY: %*phN", self.netlink)
+        self.assertNotIn("nlh->nlmsg_len, nlh", self.netlink)
+        for path in sorted((ROOT / "kernel").rglob("*.[ch]")):
+            self.assertNotIn("%px", path.read_text(encoding="utf-8"), path.name)
+
     def test_tcp_dump_reports_dial_target_not_ephemeral_tuple(self) -> None:
         get_peer = section(
             self.netlink,

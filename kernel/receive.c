@@ -30,7 +30,7 @@
 /* Must be called with bh disabled. */
 static void update_rx_stats(struct wg_peer *peer, size_t len)
 {
-	wg_dbg("Entering update_rx_stats: peer=%px, len=%zu\n", peer, len);
+	wg_dbg("Entering update_rx_stats: peer=%p, len=%zu\n", peer, len);
 	dev_sw_netstats_rx_add(peer->device->dev, len);
 	peer->rx_bytes += len;
 	wg_dbg("Exiting update_rx_stats\n");
@@ -40,8 +40,8 @@ static void update_rx_stats(struct wg_peer *peer, size_t len)
 
 static size_t validate_header_len(struct sk_buff *skb)
 {
-	wg_dbg("Entering validate_header_len: skb=%px\n", skb);
-	wg_dbg("SKB state: len=%d, head=%px, data=%px, tail=%u, end=%u\n",
+	wg_dbg("Entering validate_header_len: skb=%p\n", skb);
+	wg_dbg("SKB state: len=%d, head=%p, data=%p, tail=%u, end=%u\n",
 		skb->len, skb->head, skb->data, skb->tail, skb->end);
 
 	wg_dbg("sizeof(struct message_header)=%zu\n", sizeof(struct message_header));
@@ -107,18 +107,18 @@ static size_t validate_header_len(struct sk_buff *skb)
 
 static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
 {
-	wg_dbg("Entering prepare_skb_header: skb=%px, wg=%px\n", skb, wg);
+	wg_dbg("Entering prepare_skb_header: skb=%p, wg=%p\n", skb, wg);
 	size_t data_offset, data_len, header_len;
 	struct udphdr _udp, *udp;
 	wg_dbg("wg: prepare_skb_header: ENTER\n"
                "    skb->len=%u, skb->data_len=%u\n"
                "    headroom=%u, tailroom=%u\n"
-               "    skb->head=%px, skb->data=%px, skb->tail=%u, skb->end=%u\n",
+               "    skb->head=%p, skb->data=%p, skb->tail=%u, skb->end=%u\n",
 	       skb->len, skb->data_len,
 	       skb_headroom(skb), skb_tailroom(skb),
 	       skb->head, skb->data, skb->tail, skb->end);
 
-	wg_dbg("Initial skb state: head=%px, data=%px, tail=%u, end=%u, len=%d, headroom=%d\n",
+	wg_dbg("Initial skb state: head=%p, data=%p, tail=%u, end=%u, len=%d, headroom=%d\n",
 		skb->head, skb->data, skb->tail, skb->end, skb->len, skb_headroom(skb));
 
 	/* Check packet protocol and header validity */
@@ -190,11 +190,11 @@ static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
 	}
 
 	/* Diagnostics before pulling SKB data */
-	wg_dbg("Before skb_pull: len=%d, data=%px, tail=%u\n", skb->len,
+	wg_dbg("Before skb_pull: len=%d, data=%p, tail=%u\n", skb->len,
 	       skb->data, skb->tail);
 	skb_pull(skb, data_offset);
 	/* Diagnostics after pulling SKB data */
-	wg_dbg("After skb_pull: len=%d, data=%px, tail=%u\n", skb->len,
+	wg_dbg("After skb_pull: len=%d, data=%p, tail=%u\n", skb->len,
 	       skb->data, skb->tail);
 
 	/* Validate the SKB length against calculated data length */
@@ -215,11 +215,11 @@ static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
 	}
 
 	/* Diagnostics before pushing SKB data back */
-	wg_dbg("Before __skb_push: len=%d, data=%px, tail=%u\n", skb->len,
+	wg_dbg("Before __skb_push: len=%d, data=%p, tail=%u\n", skb->len,
 	       skb->data, skb->tail);
 	__skb_push(skb, data_offset);
 	/* Diagnostics after pushing SKB data back */
-	wg_dbg("After __skb_push: len=%d, data=%px, tail=%u\n", skb->len,
+	wg_dbg("After __skb_push: len=%d, data=%p, tail=%u\n", skb->len,
 	       skb->data, skb->tail);
 
 	/* Check pull capabilities after push */
@@ -231,15 +231,15 @@ static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
 	}
 
 	/* Diagnostics before pulling SKB data again */
-	wg_dbg("Before __skb_pull: len=%d, data=%px, tail=%u\n", skb->len,
+	wg_dbg("Before __skb_pull: len=%d, data=%p, tail=%u\n", skb->len,
 	       skb->data, skb->tail);
 	__skb_pull(skb, data_offset);
 	/* Diagnostics after pulling SKB data again */
-	wg_dbg("After __skb_pull: len=%d, data=%px, tail=%u\n", skb->len,
+	wg_dbg("After __skb_pull: len=%d, data=%p, tail=%u\n", skb->len,
 	       skb->data, skb->tail);
 
 	wg_dbg("Exiting prepare_skb_header successfully: "
-	       "final len=%d, data=%px, head=%px, tail=%u, end=%u, headroom=%d, "
+	       "final len=%d, data=%p, head=%p, tail=%u, end=%u, headroom=%d, "
 	       "tailroom=%d\n", skb->len, skb->data, skb->head, skb->tail,
 	       skb->end, skb_headroom(skb), skb_tailroom(skb));
 	return 0;
@@ -248,7 +248,7 @@ static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
 static void wg_receive_handshake_packet(struct wg_device *wg,
 					struct sk_buff *skb)
 {
-	wg_dbg("Entering wg_receive_handshake_packet: wg=%px, skb=%px\n", wg, skb);
+	wg_dbg("Entering wg_receive_handshake_packet: wg=%p, skb=%p\n", wg, skb);
 	enum cookie_mac_state mac_state;
 	struct wg_peer *peer = NULL;
 	/* This is global, so that our load calculation applies to the whole
@@ -387,7 +387,7 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 
 void wg_packet_handshake_receive_worker(struct work_struct *work)
 {
-	wg_dbg("Entering wg_packet_handshake_receive_worker: work=%px\n", work);
+	wg_dbg("Entering wg_packet_handshake_receive_worker: work=%p\n", work);
 	struct crypt_queue *queue = container_of(work, struct multicore_worker, work)->ptr;
 	struct wg_device *wg = container_of(queue, struct wg_device, handshake_queue);
 	struct sk_buff *skb;
@@ -403,7 +403,7 @@ void wg_packet_handshake_receive_worker(struct work_struct *work)
 
 static void keep_key_fresh(struct wg_peer *peer)
 {
-	wg_dbg("Entering keep_key_fresh: peer=%px\n", peer);
+	wg_dbg("Entering keep_key_fresh: peer=%p\n", peer);
 	struct noise_keypair *keypair;
 	bool send;
 
@@ -432,8 +432,8 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 	unsigned int offset;
 	int num_frags;
 
-	wg_dbg("Entering decrypt_packet: skb=%px, keypair=%px\n", skb, keypair);
-	wg_dbg("skb->len = %u, skb->data_len = %u, skb->network_header = %px\n",
+	wg_dbg("Entering decrypt_packet: skb=%p, keypair=%p\n", skb, keypair);
+	wg_dbg("skb->len = %u, skb->data_len = %u, skb->network_header = %p\n",
 	       skb->len, skb->data_len, skb_network_header(skb));
 
 	if (unlikely(!keypair)) {
@@ -466,7 +466,7 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 	wg_dbg("num_frags after skb_cow_data: %d\n", num_frags);
 	offset += sizeof(struct message_data);
 	skb_pull(skb, offset);
-	wg_dbg("Pulled skb to offset: %u, skb->len=%u, skb->data=%px\n", offset, skb->len, skb->data);
+	wg_dbg("Pulled skb to offset: %u, skb->len=%u, skb->data=%p\n", offset, skb->len, skb->data);
 	if (unlikely(num_frags < 0 || num_frags > ARRAY_SIZE(sg))) {
 		wg_dbg("skb->data (after decryption failed): %*ph\n", skb->len, skb->data);
 		wg_dbg("Failed skb_cow_data: num_frags=%d, skb->len=%u\n", num_frags, skb->len);
@@ -482,8 +482,6 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 	}
 
 	wg_dbg("Scattergather segments prepared, starting decryption\n");
-#define NOISE_KEY_LEN	32
-	wg_dbg("Decryption key: %*ph\n", NOISE_KEY_LEN, keypair->receiving.key);
 
 	if (!chacha20poly1305_decrypt_sg_inplace(sg, skb->len, NULL, 0,
                                              PACKET_CB(skb)->nonce,
@@ -502,15 +500,12 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 	wg_dbg("Pushing skb to preserve endpoint information\n");
 	skb_push(skb, offset);
 	if (pskb_trim(skb, skb->len - noise_encrypted_len(0))) {
-		wg_dbg("skb->data (after decryption failed): %*ph\n", skb->len, skb->data);
 		wg_dbg("Failed pskb_trim, skb->len=%u\n", skb->len);
 		wg_dbg("Exiting decrypt_packet with false\n");
 		return false;
 	}
 	skb_pull(skb, offset);
-	wg_dbg("skb->data (after decryption succeeded): %*ph\n",
-	       skb->len, skb->data);
-	wg_dbg("Pulled skb to offset: %u, skb->len=%u, skb->data=%px\n",
+	wg_dbg("Pulled skb to offset: %u, skb->len=%u, skb->data=%p\n",
 	       offset, skb->len, skb->data);
 
 
@@ -521,7 +516,7 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
 /* This is RFC6479, a replay detection bitmap algorithm that avoids bitshifts */
 static bool counter_validate(struct noise_replay_counter *counter, u64 their_counter)
 {
-	wg_dbg("Entering counter_validate: counter=%px, their_counter=%llu\n", counter, their_counter);
+	wg_dbg("Entering counter_validate: counter=%p, their_counter=%llu\n", counter, their_counter);
 	unsigned long index, index_current, top, i;
 	bool ret = false;
 
@@ -567,7 +562,7 @@ static void wg_packet_consume_data_done(struct wg_peer *peer,
 					struct endpoint *endpoint,
 					bool authenticated_over_tcp)
 {
-	wg_dbg("Entering wg_packet_consume_data_done: peer=%px, skb=%px, endpoint=%px\n",
+	wg_dbg("Entering wg_packet_consume_data_done: peer=%p, skb=%p, endpoint=%p\n",
 	       peer, skb, endpoint);
 	struct net_device *dev = peer->device->dev;
 	unsigned int len, len_before_trim;
@@ -692,7 +687,7 @@ packet_processed:
 
 int wg_packet_rx_poll(struct napi_struct *napi, int budget)
 {
-	wg_dbg("Entering wg_packet_rx_poll: napi=%px, budget=%d\n", napi, budget);
+	wg_dbg("Entering wg_packet_rx_poll: napi=%p, budget=%d\n", napi, budget);
 	struct wg_peer *peer = container_of(napi, struct wg_peer, napi);
 	struct noise_keypair *keypair;
 	struct endpoint endpoint;
@@ -755,7 +750,7 @@ next:
 
 void wg_packet_decrypt_worker(struct work_struct *work)
 {
-	wg_dbg("Entering wg_packet_decrypt_worker: work=%px\n", work);
+	wg_dbg("Entering wg_packet_decrypt_worker: work=%p\n", work);
 	struct crypt_queue *queue = container_of(work, struct multicore_worker,
 						 work)->ptr;
 	struct sk_buff *skb;
@@ -773,7 +768,7 @@ void wg_packet_decrypt_worker(struct work_struct *work)
 
 static void wg_packet_consume_data(struct wg_device *wg, struct sk_buff *skb)
 {
-	wg_dbg("Entering wg_packet_consume_data: wg=%px, skb=%px\n", wg, skb);
+	wg_dbg("Entering wg_packet_consume_data: wg=%p, skb=%p\n", wg, skb);
 	__le32 idx = ((struct message_data *)skb->data)->key_idx;
 	struct wg_peer *peer = NULL;
 	int ret;
@@ -812,7 +807,7 @@ err_keypair:
 
 void wg_packet_receive(struct wg_device *wg, struct sk_buff *skb)
 {
-	wg_dbg("Entering wg_packet_receive: wg=%px, skb=%px\n", wg, skb);
+	wg_dbg("Entering wg_packet_receive: wg=%p, skb=%p\n", wg, skb);
 
 	if (unlikely(prepare_skb_header(skb, wg) < 0)) {
 		wg_dbg("prepare_skb_header failed\n");
