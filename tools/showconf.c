@@ -46,8 +46,8 @@ int showconf_main(int argc, const char *argv[])
 		key_to_base64(base64, device->private_key);
 		printf("PrivateKey = %s\n", base64);
 	}
-	if (device->flags & WGDEVICE_HAS_TRANSPORT)
-		printf("Transport = %s\n", device->transport == WG_TRANSPORT_TCP ? "tcp" : "udp");
+	if ((device->flags & WGDEVICE_HAS_TRANSPORT) && device->transport == WG_TRANSPORT_TCP)
+		printf("Transport = tcp\n");
 	printf("\n");
 	for_each_wgpeer(device, peer) {
 		key_to_base64(base64, peer->public_key);
