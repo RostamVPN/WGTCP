@@ -731,6 +731,26 @@ Commits `0cd7431`, `0a55dd9`, `f7a76b0`, `c49591c`, `0ceda3f`, `d986133`,
 - Retained genuine scope boundaries as validation guidance rather than
   presenting already-corrected defects as current shortcomings.
 
+## 2026-10-14 - Portable DKMS build and patch refresh
+
+### `581e597` - Portable DKMS build across Linux 6.12 through 7.2 (v1.0.0+redteam3)
+
+- One source builds on Linux 6.12 point releases through 7.2: `LINUX_VERSION_CODE`
+  guards, a build-time `WQ_PERCPU` probe, and `kvmalloc`/`kvcalloc` instead of
+  the `kvmalloc_obj` helpers that only newer 6.12 point releases carry.
+- Shipped as an arch:all DKMS source package: the module is built for every
+  installed kernel with headers, and the `wg` tool is built on the host.
+
+### Regenerate the BIG patch against Linux v7.2
+
+- `BIG-WireguardTCP-Patch` is now the delta against Linux v7.2
+  (`drivers/net/wireguard`) and wireguard-tools `a998407`; the module's own
+  `wireguard_tcp_uapi.h` replaces the forked UAPI header.
+- `scripts/generate-big-patch.sh` replaces the PowerShell generator and takes
+  the two upstream checkouts as arguments; the patch was verified to reproduce
+  `kernel/` and `tools/` exactly when applied to the clean baselines.
+- Added `COPYING` (GPL-2.0), the licence the kernel module and the tools carry.
+
 ## Maintainer update policy
 
 Add future entries chronologically. Include the date, commit hash, implemented
