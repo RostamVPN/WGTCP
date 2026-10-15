@@ -1975,7 +1975,7 @@ int wg_tcp_connect(struct wg_peer *peer)
 		addr = (struct sockaddr *)addr4;
 		wg_dbg("Setting up IPv4 connection to %pI4:%d\n", &addr4->sin_addr, ntohs(addr4->sin_port));
 	}
-#ifdef CONFIG_IPV6
+#if IS_ENABLED(CONFIG_IPV6)
 	else if (family == AF_INET6) {
 		struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)&addr_storage;
 		addr6->sin6_family = AF_INET6;
@@ -2092,7 +2092,7 @@ int wg_tcp_connect(struct wg_peer *peer)
 			dest->sin_family = AF_INET;
 			dest->sin_port = inet->inet_dport;
 			dest->sin_addr.s_addr = inet->inet_daddr;
-#ifdef CONFIG_IPV6
+#if IS_ENABLED(CONFIG_IPV6)
 		} else if (family == AF_INET6) {
 			struct sockaddr_in6 *source6 =
 				(struct sockaddr_in6 *)&peer->outbound_source;

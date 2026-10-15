@@ -366,6 +366,16 @@ class TcpStreamContract(unittest.TestCase):
         self.assertIn("WG_TCP_RESERVED_HEADER_SIZE +", allocation)
         self.assertNotIn("WG_TCP_SKB_READ_ALLOC_SIZE", allocation)
 
+    def test_ipv6_dial_path_and_size_macros_are_portable(self) -> None:
+        header = source("kernel/socket.h")
+
+        self.assertNotIn("#ifdef CONFIG_IPV6", source("kernel/wg_tcp.c"))
+        self.assertIn(
+            "#define WG_MAX_PACKET_SIZE (65535 + WG_TCP_ENCAP_HDR_LEN)", header
+        )
+        self.assertIn("#define WG_TCP_SKB_READ_ALLOC_SIZE (8192 * 3)", header)
+        self.assertNotIn("__rcu *tcp_listen_socket4", source("kernel/device.h"))
+
     def test_outbound_headers_use_the_connected_socket_tuple(self) -> None:
         headers = section(
             self.socket,

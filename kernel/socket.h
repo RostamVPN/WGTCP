@@ -56,8 +56,8 @@ struct wg_tcp_socket_list_entry {
 
 #define WG_TCP_ENCAP_HDR_LEN sizeof(struct wg_tcp_encap_header)
 #define WG_TCP_FRAG_HDR_LEN sizeof(struct wg_tcp_frag_header)
-#define WG_MAX_PACKET_SIZE 65535 + WG_TCP_ENCAP_HDR_LEN
-#define WG_TCP_SKB_READ_ALLOC_SIZE 8192 * 3
+#define WG_MAX_PACKET_SIZE (65535 + WG_TCP_ENCAP_HDR_LEN)
+#define WG_TCP_SKB_READ_ALLOC_SIZE (8192 * 3)
 /* A nominal 128 bytes to account for various
  * stacked headers in any given Ethernet frame
  */

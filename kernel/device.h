@@ -80,7 +80,7 @@ struct wg_device {
 	struct net_device *dev;
 	struct crypt_queue encrypt_queue, decrypt_queue, handshake_queue;
 	struct sock __rcu *sock4, *sock6; /* UDP listening sockets */
-	struct socket __rcu *tcp_listen_socket4, *tcp_listen_socket6; /* TCP listening sockets */
+	struct socket *tcp_listen_socket4, *tcp_listen_socket6; /* TCP listening sockets */
 	struct net __rcu *creating_net;
 	struct noise_static_identity static_identity;
 	struct workqueue_struct *packet_crypt_wq,*handshake_receive_wq, *handshake_send_wq;

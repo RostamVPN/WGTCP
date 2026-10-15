@@ -194,6 +194,9 @@ class TcpRoamingContract(unittest.TestCase):
         for path in sorted((ROOT / "kernel").rglob("*.[ch]")):
             self.assertNotIn("%px", path.read_text(encoding="utf-8"), path.name)
 
+    def test_inner_length_checks_never_return_without_freeing(self) -> None:
+        self.assertNotIn("len_before_trim == 0", self.data_done)
+
     def test_tcp_dump_reports_dial_target_not_ephemeral_tuple(self) -> None:
         get_peer = section(
             self.netlink,
