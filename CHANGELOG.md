@@ -757,7 +757,7 @@ Fixes for the low-hanging findings of the WP6 penetration test of the kernel
 module, the `wg` fork and the packaging. No Linux kernel build environment was
 available on the host, so every kernel change below is minimal, reviewed by
 inspection and not compiled here; the source contract suite under `tests/`
-was run after each commit (222 to 226 tests, the same 7 pre-existing failures
+was run after each commit (221 to 228 tests, the same 7 pre-existing failures
 before and after every change). Findings 603, 604, 606 to 610, 614, 615 and
 618, the ABI items of 616 and the protocol and MTU items of 617 remain open as
 design-level work; 619 was closed earlier by `bdbfb96`.
