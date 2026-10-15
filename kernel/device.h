@@ -95,7 +95,6 @@ struct wg_device {
 	struct task_struct *tcp_listener4_thread, *tcp_listener6_thread;
 	struct delayed_work tcp_cleanup_work;
 	struct delayed_work tcp_route_work;
-        spinlock_t tcp_cleanup_lock; /* Add a spinlock to protect the flag */
 	bool tcp_cleanup_scheduled;
 	bool tcp_socket4_ready;
 	bool tcp_socket6_ready;

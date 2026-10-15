@@ -94,15 +94,12 @@ struct wg_peer {
 	bool tcp_connecting; /* Synchronous connect setup owns outbound cleanup */
 	bool inbound_connected; /* peer connected to us */
 	bool outbound_connected; /* we connected to them */
-	bool clean_outbound; /* release outbound at next cleanup */
-	bool clean_inbound; /* release inbound at next cleanup */
 	bool temp_peer; /* is this a temporary peer */
 
 
 	struct sk_buff_head send_queue; /* TX queue */
         spinlock_t send_queue_lock; /* TX lock */
 
-	struct list_head pending_connection_list; /* peers pending connection handshake */
 	struct mutex tcp_socket_lock; /* Serializes socket publication and callback ownership */
 	spinlock_t tcp_lock; /* Protects TCP-related state */
 

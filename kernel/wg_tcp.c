@@ -492,8 +492,6 @@ static bool wg_tcp_dial_target_eq(const struct endpoint *a,
 	return false;
 }
 
-static void wg_release_peer_tcp_connection(struct wg_peer *peer);
-
 static void wg_tcp_peer_request_reconnect_after(struct wg_peer *peer,
 						 unsigned long delay)
 {
@@ -1034,17 +1032,6 @@ void wg_tcp_set_device_mark(struct wg_device *wg, u32 mark)
 	spin_unlock_bh(&wg->tcp_connection_list_lock);
 }
 
-void wg_free_peer_socket_data(struct wg_peer *peer);
-
-void wg_free_peer_socket_data(struct wg_peer *peer)
-{
-	if (peer && !IS_ERR(peer))
-		if (peer->peer_socket)
-			if (peer->peer_socket->sk)
-				if (peer->peer_socket->sk->sk_user_data)
-					kfree(peer->peer_socket->sk->sk_user_data);
-}
-
 static int wg_release_peer_socket_locked(struct wg_peer *peer,
 					 struct socket *socket)
 {
@@ -1104,91 +1091,6 @@ static int wg_release_peer_socket_locked(struct wg_peer *peer,
 	kernel_sock_shutdown(socket, SHUT_RDWR);
 	sock_release(socket);
 	return 0;
-}
-
-
-
-void wg_clean_peer_socket(struct wg_peer *peer, bool release, bool destroy, bool inbound)
-{
-	wg_dbg("Entering function wg_clean_peer_socket peer=%p, inbound=%d\n", peer, inbound);
-	if (!peer || IS_ERR(peer)) {
-		wg_dbg("wg_clean_peer_socket: No peer or invalid peer.\n");
-		goto out;
-	}
-	print_peer_socket_info(peer);
-	if ((inbound && peer->peer_socket == peer->inbound_socket) ||
-	    (!inbound && peer->peer_socket == peer->outbound_socket)) {
-		/* Cleanup partial skb buffer */
-		if (peer->partial_skb) {
-			kfree_skb(peer->partial_skb);
-			peer->partial_skb = NULL;
-		}
-
-		/* Cancel and flush the TCP read workqueue */
-		if (peer->tcp_read_worker_scheduled) {
-			cancel_work_sync(&peer->tcp_read_work);
-			peer->tcp_read_worker_scheduled = false;
-		}
-		if (peer->tcp_read_wq && destroy) {
-			destroy_workqueue(peer->tcp_read_wq);
-			peer->tcp_read_wq = NULL;
-		}
-
-		/* Cancel and flush the TCP write workqueue */
-		if (peer->tcp_write_worker_scheduled) {
-			cancel_work_sync(&peer->tcp_write_work);
-			peer->tcp_write_worker_scheduled = false;
-		}
-		if (peer->tcp_write_wq && destroy) {
-			destroy_workqueue(peer->tcp_write_wq);
-			peer->tcp_write_wq = NULL;
-		}
-
-		/* Clean up packet queues */
-		if (!skb_queue_empty(&peer->send_queue))
-			skb_queue_purge(&peer->send_queue);
-
-		/* Reset TCP state */
-		peer->received_len = 0;
-		peer->expected_len = 0;
-		peer->tcp_established = false;
-		peer->tcp_pending = false;
-		peer->tcp_retry_scheduled = false;
-	}
-
-	/* Determine which socket and related resources to clean based on the 'inbound' flag */
-	struct socket **socket_to_clean = inbound ? &peer->inbound_socket : &peer->outbound_socket;
-	bool *callbacks_set_flag = inbound ? &peer->tcp_inbound_callbacks_set : &peer->tcp_outbound_callbacks_set;
-	bool *connected_flag = inbound ? &peer->inbound_connected : &peer->outbound_connected;
-	ktime_t *timestamp = inbound ? &peer->inbound_timestamp : &peer->outbound_timestamp;
-	/* Cleanup socket if necessary */
-	if (*socket_to_clean) {
-		if (peer->peer_socket == *socket_to_clean)
-			peer->peer_socket = NULL;
-		if (release) {
-			/* Directly free peer socket data as per wg_free_peer_socket_data logic */
-			if (*socket_to_clean && (*socket_to_clean)->sk) {
-				if ((*socket_to_clean)->sk->sk_user_data) {
-					kfree((*socket_to_clean)->sk->sk_user_data);
-					(*socket_to_clean)->sk->sk_user_data = NULL;
-				}
-			}
-			kernel_sock_shutdown(*socket_to_clean, SHUT_RDWR);
-			sock_release(*socket_to_clean);
-		}
-		*socket_to_clean = NULL;
-	}
-
-	/* Reset callbacks set flag */
-	*callbacks_set_flag = false;
-
-	/* Reset connection status and timestamp */
-	*connected_flag = false;
-	*timestamp = 0;
-
-out:
-	print_peer_socket_info(peer);
-	wg_dbg("Exiting wg_clean_peer_socket\n");
 }
 
 void wg_tcp_peer_stop(struct wg_peer *peer)
@@ -1463,7 +1365,6 @@ int wg_tcp_listener_worker(struct wg_device *wg, struct socket *tcp_socket)
 				new_temp_peer->tcp_established = true;
 				new_temp_peer->inbound_connected = true;
 				new_temp_peer->inbound_timestamp = ktime_get();
-				new_temp_peer->clean_inbound = false;
 				new_temp_peer->tcp_inbound_callbacks_set = false;
 				copy_sock_addresses(new_peer_connection, &new_temp_peer->inbound_source, &new_temp_peer->inbound_dest);
 				wg_dbg("new_temp_peer Peer endpoint:");
@@ -1888,7 +1789,6 @@ static void wg_tcp_connect_unwind(struct wg_peer *peer, struct socket *socket)
 	} else if (!peer->tcp_stopping) {
 		peer->tcp_outbound_remove_scheduled = false;
 	}
-	peer->clean_outbound = false;
 	peer->outbound_timestamp = ktime_set(0, 0);
 	spin_unlock_bh(&peer->tcp_lock);
 
@@ -2259,28 +2159,6 @@ out_unlock:
 	mutex_unlock(&peer->tcp_socket_lock);
 	return ret;
 }
-
-/* Function to release and clean up an old peer TCP connection - clean the active connection */
-static void __maybe_unused wg_release_peer_tcp_connection(struct wg_peer *peer)
-{
-	struct socket *socket;
-	int ret;
-
-	if (!peer || IS_ERR(peer))
-		return;
-	mutex_lock(&peer->tcp_socket_lock);
-	spin_lock_bh(&peer->tcp_lock);
-	socket = peer->peer_socket;
-	spin_unlock_bh(&peer->tcp_lock);
-	if (socket) {
-		ret = wg_reset_exact_tcp_socket_callbacks(peer, socket);
-		if (!ret)
-			ret = wg_release_peer_socket_locked(peer, socket);
-		WARN_ON_ONCE(ret);
-	}
-	mutex_unlock(&peer->tcp_socket_lock);
-}
-
 
 void wg_extract_endpoint_from_sock(struct sock *sk,
                                    struct endpoint *endpoint)
@@ -4744,8 +4622,6 @@ struct wg_peer *wg_temp_peer_create(struct wg_device *wg)
 	peer->tcp_outbound_callbacks_set = false;
 	peer->tcp_inbound_socket_data = NULL;
 	peer->tcp_outbound_socket_data = NULL;
-	peer->clean_inbound = false;
-	peer->clean_outbound = false;
 	peer->inbound_connected = false;
 	peer->outbound_connected = false;
 	peer->tcp_retry_scheduled = false;

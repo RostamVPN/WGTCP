@@ -81,7 +81,7 @@ class TcpLifecycleContract(unittest.TestCase):
         mark = section(
             self.socket,
             "static void wg_tcp_mark_connection_authenticated(",
-            "void wg_free_peer_socket_data(",
+            "static int wg_release_peer_socket_locked(",
         )
         claim = section(
             self.socket,
@@ -158,7 +158,7 @@ class TcpLifecycleContract(unittest.TestCase):
         mark = section(
             self.socket,
             "static void wg_tcp_mark_connection_authenticated(",
-            "void wg_free_peer_socket_data(",
+            "static int wg_release_peer_socket_locked(",
         )
         release = section(
             self.socket,
@@ -316,7 +316,7 @@ class TcpLifecycleContract(unittest.TestCase):
         connect = section(
             self.socket,
             "int wg_tcp_connect(struct wg_peer *peer)\n{",
-            "static void __maybe_unused wg_release_peer_tcp_connection(",
+            "void wg_extract_endpoint_from_sock(",
         )
 
         self.assertIn("struct socket *socket = NULL;", connect)
@@ -467,7 +467,7 @@ class TcpLifecycleContract(unittest.TestCase):
         connect = section(
             self.socket,
             "int wg_tcp_connect(struct wg_peer *peer)\n{",
-            "static void __maybe_unused wg_release_peer_tcp_connection(",
+            "void wg_extract_endpoint_from_sock(",
         )
 
         self.assertGreaterEqual(
@@ -564,12 +564,27 @@ class TcpLifecycleContract(unittest.TestCase):
         self.assertIn("socket = peer->tcp_outbound_remove_socket;", worker)
         self.assertIn("peer->outbound_socket == socket", worker)
 
+    def test_dead_tcp_helpers_and_fields_are_gone(self) -> None:
+        socket_header = source("kernel/wg_tcp.h")
+        udp_header = source("kernel/socket.h")
+
+        for symbol in (
+            "wg_clean_peer_socket",
+            "wg_free_peer_socket_data",
+            "wg_release_peer_tcp_connection",
+            "clean_inbound",
+            "clean_outbound",
+        ):
+            self.assertNotIn(symbol, self.socket)
+            self.assertNotIn(symbol, socket_header)
+            self.assertNotIn(symbol, self.peer_header)
+        self.assertNotIn("wg_tcp_connection_retry_timer", udp_header)
+        self.assertNotIn("pending_connection_list", self.peer_header)
+        self.assertNotIn("pending_connection_list", self.peer)
+        self.assertNotIn("tcp_cleanup_lock", self.device_header)
+        self.assertNotIn("tcp_cleanup_lock", self.device)
+
     def test_removal_workers_publish_their_own_completion(self) -> None:
-        cleanup = section(
-            self.socket,
-            "void wg_clean_peer_socket(struct wg_peer *peer, bool release, bool destroy, bool inbound)",
-            "void wg_tcp_peer_stop(struct wg_peer *peer)",
-        )
         state_change = section(
             self.socket,
             "void wg_tcp_state_change(struct sock *sk)",
@@ -586,9 +601,6 @@ class TcpLifecycleContract(unittest.TestCase):
             "void wg_destruct_tcp_connection_list(struct wg_device *wg)",
         )
 
-        self.assertNotIn("tcp_outbound_remove_scheduled", cleanup)
-        self.assertNotIn("tcp_inbound_remove_scheduled", cleanup)
-        self.assertNotIn("cancel_delayed_work(remove_work)", cleanup)
         established = section(
             state_change,
             "case TCP_ESTABLISHED:",

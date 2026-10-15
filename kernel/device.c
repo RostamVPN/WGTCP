@@ -616,9 +616,8 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 	wg_cookie_checker_init(&wg->cookie_checker, wg);
 	INIT_LIST_HEAD(&wg->peer_list);
 	wg->device_update_gen = 1;
-	/* Initialize the tcp_cleanup_scheduled flag and spinlock */
+	/* Initialize the tcp_cleanup_scheduled flag */
 	wg->tcp_cleanup_scheduled = false;
-	spin_lock_init(&wg->tcp_cleanup_lock);
 
 	/* Initialize the work for tcp_cleanup_worker */
 	INIT_DELAYED_WORK(&wg->tcp_cleanup_work, wg_tcp_cleanup_worker);

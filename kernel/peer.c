@@ -111,9 +111,6 @@ struct wg_peer *wg_peer_create(struct wg_device *wg,
 	/* Initialize the spinlock for the TX send queue */
 	spin_lock_init(&peer->send_queue_lock);
 
-	/* Initialize the list head for pending connection list */
-	INIT_LIST_HEAD(&peer->pending_connection_list);
-
 	/* Initialize the work structure, associating it with the worker functions */
 	INIT_WORK(&peer->tcp_read_work, wg_tcp_read_worker);
 	INIT_WORK(&peer->tcp_write_work, wg_tcp_write_worker);

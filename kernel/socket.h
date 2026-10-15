@@ -77,8 +77,6 @@ struct wg_tcp_socket_list_entry {
 #define net_dbg_skb_ratelimited(fmt, skb, ...)
 #endif
 
-void wg_tcp_connection_retry_timer(struct timer_list *);
-
 bool endpoint_eq(const struct endpoint *a, const struct endpoint *b);
 void wg_print_wireguard_skb(const struct sk_buff *skb);
 
