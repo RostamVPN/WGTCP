@@ -160,6 +160,24 @@ class TcpRoamingContract(unittest.TestCase):
             r"new_temp_peer->peer_endpoint.*incoming_port",
         )
 
+    def test_tcp_handshakes_validate_mac1_and_never_reach_a_warn(self) -> None:
+        cookie_reply = self.handshake.index("MESSAGE_HANDSHAKE_COOKIE")
+        tcp_gate = self.handshake.index("if (wg->transport == WG_TRANSPORT_TCP) {")
+        validate = self.handshake.index(
+            "wg_cookie_validate_packet(&wg->cookie_checker, skb, under_load)"
+        )
+
+        self.assertLess(cookie_reply, tcp_gate)
+        self.assertLess(tcp_gate, validate)
+        self.assertIn("under_load = false;", self.handshake)
+        self.assertNotIn("nocookie", self.handshake)
+        self.assertNotIn("goto", self.handshake)
+        self.assertNotIn("WARN(", self.handshake)
+        self.assertIn(
+            'net_dbg_skb_ratelimited("%s: Dropping unexpected handshake type from %pISpfsc\\n"',
+            self.handshake,
+        )
+
     def test_tcp_dump_reports_dial_target_not_ephemeral_tuple(self) -> None:
         get_peer = section(
             self.netlink,

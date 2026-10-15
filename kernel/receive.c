@@ -262,12 +262,6 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 	wg_dbg("Validating handshake packet with len=%u\n", skb->len);
 	wg_dbg("Received Handshake Packet: %*ph\n", (int)skb->len, skb->data);
 
-	if(wg->transport == WG_TRANSPORT_TCP) {
-		/* For TCP, skip cookie check */
-		packet_needs_cookie = false;
-		goto nocookie;
-	}
-
 	/* Handle handshake cookie response */
 	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_COOKIE)) {
 		net_dbg_skb_ratelimited("%s: Receiving cookie response from %pISpfsc\n", wg->dev->name, skb);
@@ -290,6 +284,10 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 	}
 
 	/* Validate packet's MAC and set packet_needs_cookie flag */
+	if (wg->transport == WG_TRANSPORT_TCP) {
+		/* No exact-stream cookie reply exists, so TCP checks mac1 and never challenges. */
+		under_load = false;
+	}
 	mac_state = wg_cookie_validate_packet(&wg->cookie_checker, skb, under_load);
 	wg_dbg("MAC validation result: %d\n", mac_state);
 	cookie_action = wg_cookie_validation_action(under_load, mac_state);
@@ -303,7 +301,6 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 		return;
 	}
 
-nocookie:
 	/* Process handshake packets */
 	switch (SKB_TYPE_LE32(skb)) {
 	case cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION): {
@@ -368,14 +365,11 @@ nocookie:
 	}
 
 	default:
-		wg_dbg("Unknown packet type received in handshake processing: %u\n",
-		       SKB_TYPE_LE32(skb));
 		break;
 	}
 
-	/* Final check to ensure peer is valid */
 	if (unlikely(!peer)) {
-		WARN(1, "Unexpected state: No valid peer found after handshake processing\n");
+		net_dbg_skb_ratelimited("%s: Dropping unexpected handshake type from %pISpfsc\n", wg->dev->name, skb);
 		wg_dbg("Exiting wg_receive_handshake_packet\n");
 		return;
 	}

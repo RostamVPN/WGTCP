@@ -236,10 +236,11 @@ carrier after both source-port and source-address changes.
 TCP mode also opens the normal WireGuard UDP sockets on the same numeric
 `ListenPort` as the TCP listener. Operators seeking TCP-only exposure must block
 that UDP port at the firewall. On a TCP-mode interface, handshakes delivered
-through either carrier bypass the inexpensive MAC1/cookie screen and proceed to
-Noise processing. Noise authentication remains authoritative, so this is
-pre-authentication CPU/resource denial-of-service exposure rather than an
-authentication bypass.
+through either carrier must carry a valid MAC1 before Noise processing, but no
+cookie challenge or per-source rate limit applies because a cookie reply cannot
+yet be returned on the exact stream. Noise authentication remains
+authoritative, so the residual exposure is pre-authentication CPU work by
+MAC1-bearing senders rather than an authentication bypass.
 
 ### TCP record format
 
@@ -566,9 +567,9 @@ address-roam cases, rather than this surrogate, validate those capabilities.
    gate. Stress simultaneous candidates, repeated churn, provider NATs, and
    teardown races before treating the mechanism as production-general.
 3. **Restore pre-authentication cost defense.** Add exact-stream handshake and
-   cookie replies, TCP cookie-response consumption, MAC1 validation, and a
-   staged MAC2 challenge rollout. Existing accept caps bound socket state but
-   do not prevent pre-Noise CPU work.
+   cookie replies and a staged MAC2 challenge rollout; MAC1 is validated and
+   cookie replies are consumed on every carrier already. Existing accept caps
+   bound socket state but do not prevent pre-Noise CPU work.
 4. **Broaden namespace validation.** ULA and scoped link-local IPv6 tunnels and
    independent dual-stack listeners pass. Add GUA breadth, namespace teardown,
    device-move, and VRF coverage.
@@ -871,10 +872,11 @@ Implemented controls include:
 Remaining controls include:
 
 - Restore an equivalent to WireGuard's cookie/rate-limit protection. TCP mode
-  opens TCP and UDP on the same numeric listen port, and handshakes delivered by
-  either carrier bypass the inexpensive MAC1/cookie screen. They still require
-  successful Noise authentication; the gap increases pre-authentication
-  CPU/resource denial-of-service exposure and is not an authentication bypass.
+  opens TCP and UDP on the same numeric listen port; handshakes delivered by
+  either carrier must carry a valid MAC1, but no cookie challenge or rate limit
+  applies until a cookie reply can be sent on the exact stream. They still
+  require successful Noise authentication; the gap is pre-authentication
+  CPU/resource exposure to MAC1-bearing senders, not an authentication bypass.
   Operators seeking TCP-only exposure must block the companion UDP port.
 - Stress authenticated carrier binding and promotion with repeated competing
   candidates, teardown races, provider NATs, and long-running duplicate
