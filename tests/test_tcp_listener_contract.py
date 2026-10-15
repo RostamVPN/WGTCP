@@ -89,6 +89,11 @@ class TcpListenerContract(unittest.TestCase):
             self.assertIn("*listen_socket = NULL", setup)
             self.assertIn("return ret;", setup)
             self.assertIn("sock_release(socket);", setup)
+            self.assertLess(
+                setup.index("sock_set_reuseaddr(socket->sk);"),
+                setup.index("kernel_bind(socket"),
+            )
+        self.assertNotIn("sock_set_reuseport", self.socket)
         self.assertLess(
             listen6.index("ip6_sock_set_v6only(socket->sk)"),
             listen6.index("kernel_bind(socket"),

@@ -1616,8 +1616,7 @@ int wg_setup_tcp_listen4(struct wg_device *wg, struct net *net, u16 port,
 	WRITE_ONCE(socket->sk->sk_mark, wg->fwmark);
 	wg_dbg("IPv4 socket created successfully\n");
 
-	/* Set socket options to reuse port */
-	sock_set_reuseport(socket->sk);
+	sock_set_reuseaddr(socket->sk);
 
 	wg_dbg("Binding IPv4 socket\n");
 	ret = kernel_bind(socket, WG_KSA(&addr4), sizeof(addr4));
@@ -1679,6 +1678,7 @@ int wg_setup_tcp_listen6(struct wg_device *wg, struct net *net, u16 port,
 		       wg->dev->name, ret);
 		goto error;
 	}
+	sock_set_reuseaddr(socket->sk);
 
 	wg_dbg("Binding IPv6 socket\n");
 	ret = kernel_bind(socket, WG_KSA(&addr6), sizeof(addr6));
