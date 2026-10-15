@@ -751,6 +751,81 @@ Commits `0cd7431`, `0a55dd9`, `f7a76b0`, `c49591c`, `0ceda3f`, `d986133`,
   `kernel/` and `tools/` exactly when applied to the clean baselines.
 - Added `COPYING` (GPL-2.0), the licence the kernel module and the tools carry.
 
+## 2026-10-14 - WP6 remediation pass (engagement RVPN-01)
+
+Fixes for the low-hanging findings of the WP6 penetration test of the kernel
+module, the `wg` fork and the packaging. No Linux kernel build environment was
+available on the host, so every kernel change below is minimal, reviewed by
+inspection and not compiled here; the source contract suite under `tests/`
+was run after each commit (222 to 226 tests, the same 7 pre-existing failures
+before and after every change). Findings 603, 604, 606 to 610, 614, 615 and
+618, the ABI items of 616 and the protocol and MTU items of 617 remain open as
+design-level work; 619 was closed earlier by `bdbfb96`.
+
+### `e0cd9e4` - Drop the per-accept peer-list walk from the TCP listener
+
+- RVPN-01-602, `kernel/wg_tcp.c`: the listener no longer walks `peer_list`
+  (not an RCU list) for every accepted connection; the walk only fed debug
+  output. `wg_find_peer_by_endpoints()` and `wg_tcp_queuepkt()`, which repeated
+  the pattern without a live caller, are removed with it.
+
+### `8baef74` - Validate MAC1 on TCP handshakes and never WARN on a cookie reply
+
+- RVPN-01-601 and RVPN-01-605, `kernel/receive.c`: cookie replies are consumed
+  before any transport check, the unexpected-type path is a ratelimited drop
+  instead of `WARN(1)`, and TCP-mode handshakes pass through
+  `wg_cookie_validate_packet()` with `under_load` forced false, so a valid MAC1
+  is required while the cookie challenge stays off until an exact-stream reply
+  path exists. Wire format unchanged. `docs/TCP_TRANSPORT_DESIGN.md` updated.
+
+### `6a7bdf1` - Bind the TCP listeners with SO_REUSEADDR instead of SO_REUSEPORT
+
+- RVPN-01-613, `kernel/wg_tcp.c`: both listeners set `SO_REUSEADDR` before
+  `bind()`, which keeps restart over `TIME_WAIT` working without letting another
+  root socket join a reuseport group.
+
+### `c7c0260` - Ratelimit remote-driven TCP log sites and drop the hot-path warning
+
+- RVPN-01-611, `kernel/wg_tcp.c`, `kernel/wg_tcp_debug.c`: accept, address-read
+  and `kernel_recvmsg()` errors are ratelimited (the recvmsg case at debug
+  level), the socket-data inconsistency line prints a hashed pointer, and
+  `print_peer_socket_info()` no longer emits `KERN_WARNING` on the data paths.
+
+### `cc6ea2f` - Stop verbose builds from logging keys, plaintext and raw pointers
+
+- RVPN-01-612, `kernel/send.c`, `kernel/receive.c`, `kernel/netlink.c` and all
+  `wg_dbg()` sites: session key, plaintext, raw netlink message and private or
+  preshared key dumps removed; every `%px` is now `%p`.
+
+### `7eab4e2` - Emit Transport from showconf only for TCP interfaces
+
+- RVPN-01-616 (tool part), `tools/showconf.c`: a UDP interface no longer saves
+  a `Transport = udp` line that stock `wg` rejects. Validation: Apple clang
+  build of the fork and the config-parsing harness under ASan/UBSan (13 checks,
+  200,000 mutated lines, no sanitizer reports).
+
+### `54d9b09` - Remove dead TCP helpers, declarations and write-only peer fields
+
+- RVPN-01-617, `kernel/wg_tcp.c`, `wg_tcp.h`, `socket.h`, `device.[ch]`,
+  `peer.[ch]`: `wg_clean_peer_socket()`, `wg_free_peer_socket_data()`,
+  `wg_release_peer_tcp_connection()`, the undefined retry timer declaration,
+  `tcp_cleanup_lock`, `pending_connection_list`, `clean_inbound` and
+  `clean_outbound` removed.
+
+### `1772c2c` - Fix the IPv6 dial guard, an unreachable skb leak and macro hygiene
+
+- RVPN-01-617, `kernel/wg_tcp.c`, `receive.c`, `socket.h`, `device.h`: the
+  outbound IPv6 dial path uses `IS_ENABLED(CONFIG_IPV6)`, the unreachable
+  inner-length check that returned without freeing the skb is gone, the two
+  size macros are parenthesised, and the listener pointers drop a spurious
+  `__rcu` annotation.
+
+### Regenerate the BIG patch after the remediation pass
+
+- `BIG-WireguardTCP-Patch` regenerated against the same Linux v7.2 and
+  wireguard-tools `a998407` baselines; applying it to clean copies of the
+  baselines reproduces `kernel/` and `tools/` exactly.
+
 ## Maintainer update policy
 
 Add future entries chronologically. Include the date, commit hash, implemented
